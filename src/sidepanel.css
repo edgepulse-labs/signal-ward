@@ -1,0 +1,161 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f6f7f4;
+  color: #172522;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #f6f7f4;
+}
+
+.shell {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+h2 {
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.topbar p,
+.panel p,
+label {
+  color: #50625e;
+  font-size: 13px;
+}
+
+.status {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #dff1e9;
+  color: #174b37;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.metrics article,
+.panel {
+  border: 1px solid #d8ded9;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(22, 35, 31, 0.05);
+}
+
+.metrics article {
+  display: grid;
+  gap: 3px;
+  padding: 11px;
+}
+
+.metrics span {
+  color: #102c27;
+  font-size: 24px;
+  font-weight: 750;
+}
+
+.metrics label {
+  font-size: 12px;
+}
+
+.panel {
+  padding: 12px;
+}
+
+.field,
+.toggle {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.toggle {
+  grid-template-columns: 18px 1fr;
+  align-items: center;
+}
+
+input[type="text"] {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid #cbd4cf;
+  border-radius: 6px;
+  font: inherit;
+}
+
+input[type="range"] {
+  width: 100%;
+}
+
+button {
+  width: 100%;
+  min-height: 36px;
+  margin-top: 12px;
+  border: 1px solid #285c55;
+  border-radius: 6px;
+  background: #285c55;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+button.danger {
+  border-color: #8f3a30;
+  background: #8f3a30;
+}
+
+.recent {
+  display: grid;
+  gap: 8px;
+}
+
+.recent-empty,
+.recent-item {
+  padding: 8px;
+  border-radius: 6px;
+  background: #f5f7f5;
+  color: #3b4f4b;
+  font-size: 13px;
+}
+
+.recent-item {
+  display: grid;
+  gap: 4px;
+}
+
+.recent-item strong {
+  color: #182925;
+}

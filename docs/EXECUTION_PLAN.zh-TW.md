@@ -2,661 +2,327 @@
 
 ## 文件狀態
 
-- 版本：v0.1 草案
+- 版本：v0.2 任務追蹤版
 - 來源：`docs/PRD.md`
 - 範圍：MVP Phase 1
 - 目標平台：X 與 Threads
 - 目標執行環境：Chrome Extension Manifest V3 搭配本機 Ollama 後端
+- 規則：每次實作工作完成後，都要更新這份 checklist。請保持 `docs/EXECUTION_PLAN.md` 與 `docs/EXECUTION_PLAN.zh-TW.md` 同步。
 
 ---
 
-## 1. 執行目標
+## 1. MVP 目標
 
-本文件將 Personal Cognitive Firewall Assistant（PCFA）的 PRD 轉化為第一階段本機瀏覽器助理 MVP 的實作路徑。
-
-MVP 必須證明 PCFA 可以：
-
-- 只擷取使用者可見的社群動態內容，
-- 在本機分析可見貼文，
-- 對認知與資訊品質訊號進行評分，
-- 以非破壞方式轉換高噪音動態項目，
-- 在側邊面板中呈現透明的解釋，
-- 並在不集中化使用者資料的前提下儲存本機分析資料。
-
-目標不是一次完成所有未來的認知分析功能，而是驗證 local-first 架構、瀏覽器擴充功能流程、評分管線，以及使用者體驗契約。
+建立一個 local-first 瀏覽器助理，只分析可見社群 feed 內容，在本機估計認知與資訊品質訊號，以非破壞方式標註或摺疊高噪音內容，並在側邊面板中顯示透明的 session 指標。
 
 ---
 
-## 2. MVP 產品邊界
+## 2. 目前狀態
 
-### 範圍內
-
-- Chrome Extension Manifest V3
-- X 與 Threads 的 content scripts
-- 可見 DOM 擷取
-- 貼文正規化
-- 透過 Ollama 進行本機分析
-- 毒性、情緒、資訊密度與宣傳風險評分
-- 從可見 DOM 擷取基本帳號 metadata
-- 非破壞式貼文標註與摺疊
-- 側邊面板 dashboard
-- 貼文評分與 session 指標的本機儲存
-- 透明的評分解釋
-
-### 範圍外
-
-- 自動捲動
-- 自動點擊
-- 展開隱藏留言
-- 雲端爬取
-- 跨使用者分析
-- 集中式使用者資料庫
-- 政治真偽分類
-- 自動化平台操作
-- Reddit、YouTube、Discord、Instagram、Facebook 與 LinkedIn 支援
+- [x] 英文 PRD 已存在：`docs/PRD.md`
+- [x] 繁體中文 PRD 已存在：`docs/PRD.zh-TW.md`
+- [x] 英文執行規劃已存在：`docs/EXECUTION_PLAN.md`
+- [x] 繁體中文執行規劃已存在：`docs/EXECUTION_PLAN.zh-TW.md`
+- [x] MVP runbook 已存在：`docs/MVP_RUNBOOK.md`
+- [x] 不依賴外部套件的 Chrome MV3 prototype 已存在
+- [ ] Extension 已在 Chrome / Chromium 手動載入並驗證
+- [ ] X 擷取已用 live site 驗證
+- [ ] Threads 擷取已用 live site 驗證
+- [ ] Ollama 分析已用真實本機模型驗證
 
 ---
 
-## 3. 交付策略
+## 3. 產品邊界 Checklist
 
-PCFA 應先以輕量、可檢查的瀏覽器擴充功能交付，並將智慧分析委派給本機分析服務。
+### MVP 範圍內
 
-MVP 架構應優先考量：
+- [x] Chrome Extension Manifest V3
+- [x] X 與 Threads 的 content scripts
+- [x] 可見 DOM 擷取
+- [x] 貼文正規化
+- [x] 透過 Ollama 進行本機分析
+- [x] Ollama 不可用時的本機 heuristic fallback
+- [x] 毒性評分
+- [x] 情緒評分
+- [x] 資訊密度評分
+- [x] 宣傳風險評分
+- [x] 從可見 DOM 擷取基本帳號 metadata
+- [x] 非破壞式貼文標註
+- [x] 可逆的高毒性內容摺疊
+- [x] 側邊面板 dashboard
+- [x] 透過 `chrome.storage.local` 本機保存分數與 session 指標
+- [x] 透明的評分解釋
+- [ ] IndexedDB persistence
+- [ ] 校準後的 classifier integration
+- [ ] 注意力時間 analytics
 
-- 預設保護隱私，
-- 清楚的資料邊界，
-- 模組化平台 adapter，
-- 可替換的本機模型後端，
-- 可解釋的評分，
-- 以及低風險的 UI 轉換。
+### MVP 範圍外
 
-實作順序應採取垂直切片：先為 X 建立一條完整的可見貼文流程，再抽象化 adapter 模型並加入 Threads。
-
----
-
-## 4. 建議技術棧
-
-### 瀏覽器擴充功能
-
-- Framework：Plasmo 或 Vite with React
-- Extension format：Chrome Manifest V3
-- UI surface：content script overlays 與 Chrome side panel
-- Background runtime：service worker
-- Messaging：Chrome extension message passing
-
-### 本機分析執行環境
-
-- 初始後端：Ollama HTTP API
-- 模型類型：用於摘要與解釋的輕量本機 LLM
-- 可選分類器：ONNX Runtime 或 Hugging Face Transformers，用於專門的毒性／情緒分類器
-
-### 本機儲存
-
-- MVP 儲存：extension 內的 IndexedDB
-- 未來分析儲存：透過本機 companion service 使用 SQLite 或 DuckDB
-
-IndexedDB 對 extension-only MVP 已經足夠。當多 session analytics 與較重的聚合需求出現時，再導入 SQLite 或 DuckDB。
+- [x] 不自動捲動
+- [x] 不自動點擊
+- [x] 不展開隱藏留言
+- [x] 不雲端爬取
+- [x] 不建立集中式使用者資料庫
+- [x] 不做跨使用者分析
+- [x] 不做政治真偽分類
+- [x] 不做自動化平台操作
+- [x] 尚不支援 Reddit、YouTube、Discord、Facebook、Instagram、Hacker News 或 LinkedIn
 
 ---
 
-## 5. 系統元件
-
-### 5.1 平台 Adapter Layer
-
-職責：
-
-- 偵測支援的平台頁面，
-- 辨識可見 feed 容器，
-- 擷取可見貼文節點，
-- 在使用者開啟留言時擷取可見留言節點，
-- 蒐集可見帳號 metadata，
-- 為觀察到的項目指派穩定的本機 ID，
-- 並避免收集隱藏或畫面外資料。
-
-初始 adapters：
-
-- `xAdapter`
-- `threadsAdapter`
-
-每個 adapter 應提供共同介面：
-
-```ts
-interface PlatformAdapter {
-  platform: "x" | "threads";
-  isSupportedPage(): boolean;
-  observeVisibleFeed(onItems: (items: RawFeedItem[]) => void): void;
-  extractItem(node: Element): RawFeedItem | null;
-}
-```
-
-### 5.2 DOM 擷取層
-
-職責：
-
-- 觀察 viewport 可見內容，
-- 對 DOM mutation 進行 debounce，
-- 去除重複節點，
-- 移除無關 UI 文字，
-- 保留作者、時間戳、貼文本文、互動數與可見連結，
-- 並標記擷取信心值。
-
-限制：
-
-- 不自動捲動。
-- 不點擊或展開內容。
-- 不將隱藏 DOM 當作使用者可見證據處理。
-
-### 5.3 正規化管線
-
-職責：
-
-- 將原始平台資料轉為 canonical schema，
-- 正規化文字，
-- 保留平台特定 metadata，
-- 以本機 hash 進行去重，
-- 並準備分析請求。
-
-建議 canonical shape：
-
-```ts
-interface NormalizedFeedItem {
-  id: string;
-  platform: "x" | "threads";
-  url?: string;
-  authorHandle?: string;
-  authorDisplayName?: string;
-  accountSignals?: AccountSignals;
-  text: string;
-  visibleLinks: string[];
-  engagement?: EngagementSignals;
-  observedAt: string;
-  extractionConfidence: number;
-}
-```
-
-### 5.4 本機 AI 分析引擎
-
-職責：
-
-- 將正規化後的可見內容送到本機 runtime，
-- 要求結構化 JSON 輸出，
-- 驗證模型回應，
-- 對無效輸出進行 retry 或 graceful degradation，
-- 並回傳評分解釋與信心估計。
-
-初始評分類別：
-
-- 毒性分數，
-- 憤怒分數，
-- 恐懼分數，
-- 敵意分數，
-- 資訊密度，
-- 證據存在性，
-- 宣傳風險，
-- bot signal，
-- coordination risk，
-- 以及摘要品質。
-
-### 5.5 評分與解釋層
-
-職責：
-
-- 結合模型輸出與 deterministic heuristics，
-- 產生 0.0 到 1.0 的校準分數，
-- 附加人類可讀的解釋，
-- 呈現訊號貢獻而非結論判決，
-- 並區分低信心與低風險。
-
-分數絕不能被呈現為最終真相。它們是本機風險估計與注意力管理提示。
-
-### 5.6 Feed 轉換層
-
-職責：
-
-- 用 score badges 標註貼文，
-- 視覺上降低高噪音項目的權重，
-- 將高毒性項目摺疊到可復原控制後方，
-- 提供簡短的結構化摘要，
-- 並保留原始內容的存取權。
-
-所有轉換都必須可由使用者復原。
-
-### 5.7 側邊面板 Dashboard
-
-職責：
-
-- 顯示目前 session 指標，
-- 顯示 feed-level toxicity ratio，
-- 顯示情緒暴露指標，
-- 顯示資訊密度趨勢，
-- 列出近期高風險模式，
-- 解釋分數如何產生，
-- 並提供摺疊門檻的使用者控制。
-
-### 5.8 本機儲存與分析
-
-職責：
-
-- 保存本機 session 摘要，
-- 儲存正規化項目的 hash 與分數，
-- 追蹤每日聚合指標，
-- 預設避免儲存不必要的原始 feed 文字，
-- 並提供使用者可控制的資料刪除路徑。
-
-MVP 中，只有在可見解釋或摘要需要時才儲存原始文字。長期保存時優先保留衍生分數與 hash。
-
----
-
-## 6. 里程碑
+## 4. 里程碑 Checklist
 
 ### Milestone 0：Repository 與架構設定
 
-交付項目：
+- [x] 建立 extension project structure
+- [x] 新增 `manifest.json`
+- [x] 新增 background service worker
+- [x] 新增 content script
+- [x] 新增 side panel HTML/CSS/JS
+- [x] 新增 MVP runbook
+- [x] 保守設定 extension permissions
+- [x] 避免外部 analytics 或 telemetry
+- [ ] 新增 TypeScript configuration
+- [ ] 新增 linting 與 formatting setup
+- [ ] 新增 shared domain type definitions
+- [ ] 新增 local-first data handling 的 architecture decision record
 
-- extension project scaffold，
-- TypeScript configuration，
-- linting and formatting，
-- shared domain types，
-- local-first data handling 的 architecture decision record，
-- 以及開發說明。
+驗收：
 
-驗收標準：
-
-- extension 可在本機 build，
-- side panel shell 可開啟，
-- content script 可載入測試頁面，
-- 且沒有外部 analytics 或 telemetry。
+- [x] Manifest 可解析為有效 JSON
+- [x] JavaScript 檔案通過語法檢查
+- [ ] Extension 可透過正式 build command 建置
+- [ ] Extension 可透過 Chrome "Load unpacked" 乾淨載入
 
 ### Milestone 1：X 可見 Feed 擷取
 
-交付項目：
+- [x] 偵測 X / Twitter hostnames
+- [x] 找出可見 X tweet candidates
+- [x] 擷取可見 tweet text
+- [x] 可取得時擷取可見 author handle
+- [x] 擷取可見 links
+- [x] 指派穩定本機 ID
+- [x] 去除重複觀察項目
+- [x] 對 DOM mutation scan 進行 debounce
+- [x] 忽略 viewport 外 candidates
+- [ ] 以 live X 驗證 selectors
+- [ ] 新增 fixture-based regression examples
+- [ ] 改善 extraction confidence calibration
 
-- X adapter，
-- viewport-aware DOM observer，
-- raw post extraction，
-- normalization pipeline，
-- duplicate detection，
-- extraction debug panel 或 logs。
+驗收：
 
-驗收標準：
-
-- 可見 X 貼文在不自動捲動下被偵測，
-- 擷取欄位能一致地正規化，
-- 隱藏內容被忽略，
-- 且重複 DOM 更新不會建立重複紀錄。
+- [x] 實作不自動捲動
+- [x] 實作不自動點擊
+- [x] 實作不展開隱藏內容
+- [ ] Live X 貼文可穩定偵測
+- [ ] 重複 DOM 更新不會建立重複可見標註
 
 ### Milestone 2：本機分析 Runtime 整合
 
-交付項目：
+- [x] 新增 Ollama HTTP client
+- [x] 新增 model setting，預設 `llama3.2`
+- [x] 新增 structured JSON prompt
+- [x] 驗證並正規化模型分數
+- [x] 新增 Ollama 不可用時的 heuristic fallback
+- [x] 隨分數儲存 model/source metadata
+- [x] 避免雲端分析呼叫
+- [ ] 新增明確的 Ollama health check UI
+- [ ] 以真實本機 Ollama 模型驗證
+- [ ] 新增 malformed model output 的 retry policy
 
-- Ollama client，
-- model availability check，
-- structured analysis prompt，
-- JSON response validator，
-- runtime 不可用時的 fallback behavior，
-- 以及基本評分輸出。
+驗收：
 
-驗收標準：
-
-- 一則可見貼文可在本機被分析，
-- 無效模型輸出被安全處理，
-- 沒有原始內容被送到雲端服務，
-- 且使用者能看到本機 runtime 狀態。
+- [x] 一個 normalized item 可送入本機分析程式碼
+- [x] 模型無效或不可用時會降級為本機 heuristic scoring
+- [x] Extension code 不會將原始內容送到雲端服務
+- [ ] 使用者可清楚看出分數由 Ollama 或 heuristic mode 產生
 
 ### Milestone 3：評分、解釋與 UI 標註
 
-交付項目：
+- [x] 在 background result objects 中新增 score schema
+- [x] 在 background result objects 中新增 explanation schema
+- [x] 新增 toxicity badge
+- [x] 新增 anger badge
+- [x] 新增 information-density badge
+- [x] 新增 explanation details UI
+- [x] 新增 reversible collapse control
+- [x] 新增可設定的 collapse threshold
+- [x] 將 heuristic explanations 與 local model explanations 分開標示
+- [ ] 新增 low-confidence visual state
+- [ ] 在 side panel 新增 per-category score details
+- [ ] 新增單一 collapsed item 的 user override
 
-- score schema，
-- explanation schema，
-- score badge UI，
-- reversible collapse control，
-- summary display，
-- 以及使用者可設定的 thresholds。
+驗收：
 
-驗收標準：
-
-- 高毒性貼文可以被摺疊與還原，
-- 每個分數都包含簡短解釋，
-- UI 不會永久隱藏或刪除內容，
-- 且不確定的分數會被標記為 uncertain。
+- [x] 高毒性項目可被摺疊與還原
+- [x] 每個分數都至少包含一則解釋
+- [x] UI 不會永久隱藏或刪除內容
+- [ ] 不確定分數會被明確標示為 uncertain
 
 ### Milestone 4：側邊面板 Dashboard
 
-交付項目：
+- [x] 新增 side panel shell
+- [x] 顯示 analyzed item count
+- [x] 顯示 high-toxicity item count
+- [x] 顯示 average toxicity
+- [x] 顯示 average information density
+- [x] 顯示 recent signal list
+- [x] 新增 model setting control
+- [x] 新增 threshold control
+- [x] 新增 heuristic-only mode toggle
+- [x] 新增 raw-text storage toggle
+- [x] 新增 local score clearing button
+- [ ] 新增 emotional exposure time
+- [ ] 新增 feed-level outrage amplification ratio
+- [ ] 新增 discussion diversity score
+- [ ] 新增 privacy/compliance status panel
 
-- current session metrics，
-- feed-level aggregate scores，
-- emotional exposure indicators，
-- information density summary，
-- threshold controls，
-- 以及 transparency notes。
+驗收：
 
-驗收標準：
-
-- dashboard 會隨可見貼文分析而更新，
-- 聚合指標與已儲存的 item scores 相符，
-- 控制項會立即影響內容轉換，
-- 且本機模型不可用時 dashboard 仍可使用。
+- [x] Dashboard 可讀取本機 extension state
+- [x] Dashboard 可更新 settings
+- [x] Dashboard 可清除本機 score data
+- [ ] Dashboard 已在瀏覽 live X / Threads 時驗證
 
 ### Milestone 5：Threads Adapter
 
-交付項目：
+- [x] 偵測 Threads hostnames
+- [x] 新增 best-effort Threads candidate selectors
+- [x] 重用 shared normalization path
+- [x] 重用 shared scoring and dashboard path
+- [ ] 以 live Threads 驗證 selectors
+- [ ] 新增 Threads fixture-based regression examples
+- [ ] 改善 Threads author 與 permalink extraction
 
-- Threads platform adapter，
-- adapter-specific selectors，
-- normalization compatibility checks，
-- 以及 platform regression fixtures。
+驗收：
 
-驗收標準：
-
-- 可見 Threads 貼文可被擷取與分析，
-- 共用評分與 dashboard code 不需平台特定 branching 即可運作，
-- 且 X 行為保持穩定。
+- [ ] 可見 Threads 貼文可穩定擷取
+- [x] Extraction 後，shared scoring code 不需平台特定 branching 即可運作
+- [ ] Threads 驗證後，X 行為仍保持穩定
 
 ### Milestone 6：本機持久化與每日指標
 
-交付項目：
+- [x] 透過 `chrome.storage.local` 本機保存 scores
+- [x] 透過 `chrome.storage.local` 本機保存 settings
+- [x] 保存基本 session metrics
+- [x] 提供本機資料清除控制
+- [x] 預設避免儲存原始可見文字
+- [ ] 實作 IndexedDB persistence
+- [ ] 新增 daily rollups
+- [ ] 新增 retention settings
+- [ ] 新增 local analytics export/import
 
-- IndexedDB persistence，
-- session rollups，
-- daily metric aggregation，
-- retention settings，
-- 以及本機資料刪除控制。
+驗收：
 
-驗收標準：
-
-- extension reload 後分數仍存在，
-- 每日指標在本機產生，
-- 使用者可以清除儲存資料，
-- 且 retention behavior 有文件化。
+- [x] Scores 可透過 local storage 在 extension runtime reload 後保存
+- [x] 使用者可以清除已儲存 score data
+- [ ] 每日指標在本機產生
+- [ ] Retention behavior 已在 UI 中文件化
 
 ### Milestone 7：MVP Hardening
 
-交付項目：
+- [x] 對目前 JavaScript 檔案執行語法檢查
+- [x] 驗證 `manifest.json`
+- [ ] 在 Chrome / Chromium 手動載入 extension
+- [ ] 測試 X
+- [ ] 測試 Threads
+- [ ] 測試 Ollama 可用狀態
+- [ ] 測試 Ollama 不可用狀態
+- [ ] Review extension permissions
+- [ ] Profile long-feed performance
+- [ ] Review memory usage
+- [ ] 建立 false-positive review set
+- [ ] 依 PRD constraints 進行 privacy review
+- [ ] 準備 MVP release checklist
 
-- performance profiling，
-- memory usage review，
-- false-positive review set，
-- privacy review，
-- UX review，
-- 以及 MVP release checklist。
+驗收：
 
-驗收標準：
-
-- extension 在長 feed 上仍維持 responsive，
-- 本機 inference 失敗不會破壞瀏覽，
-- privacy constraints 已驗證，
-- 且 MVP 可供受控個人使用。
-
----
-
-## 7. 工作流
-
-### Extension Platform
-
-- project scaffold，
-- manifest configuration，
-- background service worker，
-- content script lifecycle，
-- side panel routing，
-- extension permissions review。
-
-### Platform Extraction
-
-- X adapter，
-- Threads adapter，
-- viewport detection，
-- mutation observer，
-- deduplication，
-- extraction confidence。
-
-### Local Intelligence
-
-- Ollama health checks，
-- prompt templates，
-- structured output validation，
-- scoring calibration，
-- classifier integration path，
-- runtime error handling。
-
-### Product UX
-
-- score badges，
-- reversible collapse，
-- summaries，
-- side panel dashboard，
-- threshold controls，
-- transparency explanations。
-
-### Privacy and Storage
-
-- local-only persistence，
-- retention policy，
-- data deletion，
-- raw text minimization，
-- privacy test checklist。
-
-### Quality and Evaluation
-
-- platform fixture pages，
-- score regression examples，
-- false-positive review，
-- latency measurements，
-- memory profiling，
-- manual test scripts。
+- [ ] Extension 在長 feed 上仍維持 responsive
+- [ ] 本機 inference 失敗不會破壞瀏覽
+- [ ] Privacy constraints 已手動驗證
+- [ ] MVP 可供受控個人使用
 
 ---
 
-## 8. 資料模型草案
+## 5. 資料模型 Checklist
 
-### Feed Item Score
-
-```ts
-interface FeedItemScore {
-  itemId: string;
-  model: string;
-  analyzedAt: string;
-  scores: {
-    toxicity: number;
-    anger: number;
-    fear: number;
-    hostility: number;
-    informationDensity: number;
-    evidencePresence: number;
-    propagandaRisk: number;
-    botSignal: number;
-    coordinationRisk: number;
-  };
-  confidence: number;
-  explanations: ScoreExplanation[];
-  summary?: string;
-}
-```
-
-### Score Explanation
-
-```ts
-interface ScoreExplanation {
-  category: string;
-  contribution: "low" | "medium" | "high";
-  reason: string;
-  evidence?: string[];
-}
-```
-
-### Session Metrics
-
-```ts
-interface SessionMetrics {
-  sessionId: string;
-  startedAt: string;
-  endedAt?: string;
-  postsViewed: number;
-  postsAnalyzed: number;
-  highToxicityPosts: number;
-  averageInformationDensity: number;
-  emotionalExposureMinutes?: number;
-}
-```
+- [x] Feed item local ID
+- [x] Platform field
+- [x] 可見時保存 URL field
+- [x] 可見時保存 author handle field
+- [x] 可見時保存 author display name field
+- [x] Visible links list
+- [x] Observed timestamp
+- [x] Extraction confidence estimate
+- [x] Toxicity score
+- [x] Anger score
+- [x] Fear score
+- [x] Hostility score
+- [x] Information density score
+- [x] Evidence presence score
+- [x] Propaganda risk score
+- [x] Bot signal score
+- [x] Coordination risk score
+- [x] Confidence field
+- [x] Explanations list
+- [x] Optional summary
+- [ ] Versioned schema migrations
+- [ ] Dedicated account reputation records
+- [ ] Daily metric records
 
 ---
 
-## 9. Prompting 與分類政策
+## 6. 隱私與合規 Gates
 
-分析 prompt 必須要求結構化 JSON 與中立語言。
-
-模型應被指示：
-
-- 分析修辭與資訊訊號，
-- 避免政治真偽判斷，
-- 避免意識形態分類，
-- 將毒性與不同意見分開，
-- 引用可觀察文字訊號，
-- 估計信心值，
-- 並在證據薄弱時回傳不確定性。
-
-模型不應被要求判定政治主張是否為真。若未來加入 fact checking，必須設計成獨立、由使用者控制、且明確處理來源的功能。
-
----
-
-## 10. 隱私與合規 Gate
-
-MVP 完成前，需驗證 PCFA：
-
-- 只處理可見或使用者開啟的內容，
-- 不自動捲動，
-- 不自動點擊，
-- 不收集隱藏 DOM 內容，
-- 不將原始 feed 內容送到雲端服務，
-- 不建立跨使用者分析，
-- 資料儲存在本機，
-- 提供本機資料刪除，
-- 並將所有分數標示為估計值。
-
-若違反以上 gate，應阻擋 release。
+- [x] 只處理可見 candidate content
+- [x] 不自動捲動
+- [x] 不自動點擊
+- [x] 不自動展開隱藏內容
+- [x] 不將原始 feed 內容送到雲端服務
+- [x] 不建立跨使用者 analytics
+- [x] Scores 儲存在本機
+- [x] 提供本機資料刪除
+- [x] 透過 explanations 將 scores 標示為 estimates
+- [x] 預設避免儲存原始可見文字
+- [ ] 在 side panel 新增可見 privacy status
+- [ ] MVP release 前新增 manual privacy review notes
 
 ---
 
-## 11. 測試計畫
+## 7. 測試 Checklist
 
-### Unit Tests
+### Static Checks
 
-- normalization functions，
-- score validation，
-- threshold logic，
-- storage adapters，
-- prompt response parsing。
+- [x] `node --check src/background.js`
+- [x] `node --check src/content.js`
+- [x] `node --check src/sidepanel.js`
+- [x] `manifest.json` JSON parse check
+- [ ] 新增 automated lint command
+- [ ] 新增 automated test command
 
-### Integration Tests
+### Manual Checks
 
-- content script to background messaging，
-- background to Ollama runtime，
-- side panel metric updates，
-- storage persistence and reload behavior。
-
-### Manual Tests
-
-- X feed extraction，
-- Threads feed extraction，
-- local runtime unavailable state，
-- high-toxicity collapse and restore，
-- low-confidence explanation display，
-- data deletion flow。
-
-### Evaluation Tests
-
-- curated post examples，
-- expected score ranges，
-- false-positive review，
-- latency and memory profiling，
-- summary usefulness review。
+- [ ] 在 Chrome / Chromium 載入 unpacked extension
+- [ ] 從 extension action 開啟 side panel
+- [ ] 瀏覽 X 並確認 annotations 出現
+- [ ] 瀏覽 Threads 並確認 annotations 出現
+- [ ] 確認 high-toxicity collapse 可被還原
+- [ ] 確認 threshold control 會影響後續 collapse behavior
+- [ ] 確認 data clearing 會移除 local scores
+- [ ] 確認 raw text toggle 關閉時不儲存原始文字
+- [ ] 確認 Ollama 不可用時 heuristic fallback 可運作
+- [ ] 確認 Ollama 可用時 Ollama analysis 可運作
 
 ---
 
-## 12. 初始風險
+## 8. 下一步執行任務
 
-### 平台 DOM 不穩定
-
-X 與 Threads 的 DOM 結構可能經常變動。
-
-緩解方式：
-
-- 將 selectors 隔離在 adapters，
-- 盡可能使用 semantic 與 accessibility hints，
-- 維護 fixture snapshots，
-- 並加入 extraction confidence。
-
-### 本機模型變異
-
-不同本機模型可能回傳不一致的分數。
-
-緩解方式：
-
-- 驗證結構化輸出，
-- 將 deterministic heuristics 與 model scoring 分離，
-- 記錄模型名稱與版本，
-- 並從保守 UI thresholds 開始。
-
-### 過度阻擋或被視為審查
-
-使用者可能將摺疊內容理解為審查。
-
-緩解方式：
-
-- 保持所有轉換可復原，
-- 清楚呈現原始內容存取方式，
-- 提供 threshold controls，
-- 並說明分數是本機估計值。
-
-### 隱私邊界漂移
-
-功能壓力可能推動系統收集更多資料。
-
-緩解方式：
-
-- 維持明確的 compliance gates，
-- 文件化禁止行為，
-- 並用 local-first rule 審查每個新功能。
-
-### 效能成本
-
-DOM 觀察與本機 inference 可能影響瀏覽體驗。
-
-緩解方式：
-
-- 對 extraction 進行 debounce，
-- 只分析可見項目，
-- 以本機 content hash 快取分數，
-- 並提供 runtime pause controls。
-
----
-
-## 13. MVP v0.1 Release Criteria
-
-當以下條件成立時，MVP 可供受控個人使用：
-
-- X 與 Threads 可見貼文可在本機分析，
-- 高噪音內容可被標註並可逆摺疊，
-- 側邊面板指標會依本機分數更新，
-- 所有評分都包含解釋與信心值，
-- 本機模型失敗時可 graceful degradation，
-- 未使用雲端 feed processing，
-- 本機資料可被刪除，
-- 且 privacy/compliance gates 通過。
-
----
-
-## 14. 建議實作順序
-
-1. 建立 extension scaffold 與 shared types。
-2. 完成 X 可見擷取端到端流程。
-3. 為單一貼文加入本機 Ollama 分析。
-4. 加入 score validation 與 explanations。
-5. 加入 content annotation 與 reversible collapse。
-6. 建立 side panel dashboard。
-7. 加入 IndexedDB persistence 與 session metrics。
-8. 加入 Threads adapter。
-9. 進行 privacy、performance 與 UX hardening。
-10. 封裝 MVP v0.1，供受控個人使用。
+- [ ] 在 Chrome / Chromium 手動載入 unpacked extension。
+- [ ] 修正手動載入時發現的 manifest、permission 或 side panel 問題。
+- [ ] 測試 live X extraction 並調整 selectors。
+- [ ] 測試 live Threads extraction 並調整 selectors。
+- [ ] 在本機執行 Ollama 並驗證 structured model output。
+- [ ] 新增 Ollama vs heuristic mode 的可見 runtime health indicator。
+- [ ] 新增 extraction regression tests 用的 fixture pages。
+- [ ] 決定繼續維持 dependency-free vanilla JS，或遷移到 TypeScript/Vite。
 

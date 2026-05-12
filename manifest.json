@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Personal Cognitive Firewall Assistant",
+  "short_name": "PCFA",
+  "version": "0.1.0",
+  "description": "Local-first cognitive firewall for visible social feeds.",
+  "permissions": ["storage", "sidePanel"],
+  "host_permissions": [
+    "http://localhost:11434/*",
+    "http://127.0.0.1:11434/*",
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "https://www.threads.net/*",
+    "https://threads.net/*"
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*",
+        "https://www.threads.net/*",
+        "https://threads.net/*"
+      ],
+      "js": ["src/content.js"],
+      "css": ["src/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "src/sidepanel.html"
+  },
+  "action": {
+    "default_title": "PCFA"
+  },
+  "options_page": "src/sidepanel.html"
+}

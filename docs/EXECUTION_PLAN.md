@@ -2,661 +2,327 @@
 
 ## Document Status
 
-- Version: v0.1 Draft
+- Version: v0.2 Task Tracker
 - Source: `docs/PRD.md`
 - Scope: MVP Phase 1
 - Target platforms: X and Threads
 - Target runtime: Chrome Extension Manifest V3 with a local Ollama backend
+- Rule: update this checklist whenever implementation work finishes. Keep `docs/EXECUTION_PLAN.md` and `docs/EXECUTION_PLAN.zh-TW.md` synchronized.
 
 ---
 
-## 1. Execution Objective
+## 1. MVP Objective
 
-This plan turns the Personal Cognitive Firewall Assistant (PCFA) PRD into an implementation path for the first local browser assistant MVP.
-
-The MVP must prove that PCFA can:
-
-- extract only user-visible social feed content,
-- analyze visible posts locally,
-- score cognitive and information quality signals,
-- transform noisy feed items non-destructively,
-- show transparent explanations in a side panel,
-- and store local analytics without centralizing user data.
-
-The goal is not to build every future cognitive analytics feature. The goal is to validate the local-first architecture, the browser extension workflow, the scoring pipeline, and the user experience contract.
+Build a local-first browser assistant that analyzes only visible social feed content, estimates cognitive and information-quality signals locally, annotates or collapses noisy content non-destructively, and shows transparent session metrics in a side panel.
 
 ---
 
-## 2. MVP Product Boundary
+## 2. Current Status
+
+- [x] PRD exists in English: `docs/PRD.md`
+- [x] PRD exists in Traditional Chinese: `docs/PRD.zh-TW.md`
+- [x] Execution plan exists in English: `docs/EXECUTION_PLAN.md`
+- [x] Execution plan exists in Traditional Chinese: `docs/EXECUTION_PLAN.zh-TW.md`
+- [x] MVP runbook exists: `docs/MVP_RUNBOOK.md`
+- [x] Dependency-free Chrome MV3 prototype exists
+- [ ] Extension has been manually loaded and verified in Chrome / Chromium
+- [ ] X extraction has been verified against the live site
+- [ ] Threads extraction has been verified against the live site
+- [ ] Ollama analysis has been verified with a real local model
+
+---
+
+## 3. Product Boundary Checklist
 
 ### In Scope
 
-- Chrome Extension Manifest V3
-- Content scripts for X and Threads
-- Visible DOM extraction
-- Post normalization
-- Local analysis through Ollama
-- Toxicity, emotion, information density, and propaganda-risk scoring
-- Basic account metadata capture from visible DOM
-- Non-destructive post annotation and collapsing
-- Side panel dashboard
-- Local persistence for post scores and session metrics
-- Transparent scoring explanations
+- [x] Chrome Extension Manifest V3
+- [x] Content scripts for X and Threads
+- [x] Visible DOM extraction
+- [x] Post normalization
+- [x] Local analysis through Ollama
+- [x] Heuristic local fallback when Ollama is unavailable
+- [x] Toxicity scoring
+- [x] Emotion scoring
+- [x] Information density scoring
+- [x] Propaganda-risk scoring
+- [x] Basic account metadata capture from visible DOM
+- [x] Non-destructive post annotation
+- [x] Reversible high-toxicity collapsing
+- [x] Side panel dashboard
+- [x] Local score and session metric persistence through `chrome.storage.local`
+- [x] Transparent scoring explanations
+- [ ] IndexedDB persistence
+- [ ] Calibrated classifier integration
+- [ ] Attention-time analytics
 
-### Out of Scope
+### Out of Scope for MVP
 
-- Auto-scrolling
-- Auto-clicking
-- Hidden comment expansion
-- Cloud scraping
-- Cross-user analytics
-- Centralized user database
-- Political truth classification
-- Automated platform actions
-- Reddit, YouTube, Discord, Instagram, Facebook, and LinkedIn support
-
----
-
-## 3. Delivery Strategy
-
-PCFA should be delivered as a thin, inspectable browser extension first, with intelligence delegated to a local analysis service.
-
-The MVP architecture should optimize for:
-
-- privacy by default,
-- clear data boundaries,
-- modular platform adapters,
-- replaceable local model backends,
-- explainable scoring,
-- and low-risk UI transformations.
-
-Implementation should proceed vertically: build one complete visible-post flow for X first, then generalize the adapter model and add Threads.
+- [x] No auto-scrolling
+- [x] No auto-clicking
+- [x] No hidden comment expansion
+- [x] No cloud scraping
+- [x] No centralized user database
+- [x] No cross-user analytics
+- [x] No political truth classification
+- [x] No automated platform actions
+- [x] No support yet for Reddit, YouTube, Discord, Facebook, Instagram, Hacker News, or LinkedIn
 
 ---
 
-## 4. Proposed Technical Stack
-
-### Browser Extension
-
-- Framework: Plasmo or Vite with React
-- Extension format: Chrome Manifest V3
-- UI surfaces: content script overlays and Chrome side panel
-- Background runtime: service worker
-- Messaging: Chrome extension message passing
-
-### Local Analysis Runtime
-
-- Initial backend: Ollama HTTP API
-- Model class: compact local LLM for summarization and explanation
-- Optional classifiers: ONNX Runtime or Hugging Face Transformers for specialized toxicity/emotion classifiers
-
-### Local Storage
-
-- MVP storage: IndexedDB inside the extension
-- Future analytics storage: SQLite or DuckDB through a local companion service
-
-IndexedDB is sufficient for the extension-only MVP. SQLite or DuckDB should be introduced when multi-session analytics and heavier aggregation become necessary.
-
----
-
-## 5. System Components
-
-### 5.1 Platform Adapter Layer
-
-Responsibilities:
-
-- detect supported platform pages,
-- identify visible feed containers,
-- extract visible post nodes,
-- extract visible comment nodes when opened by the user,
-- collect visible account metadata,
-- assign stable local IDs for observed items,
-- and avoid hidden or off-screen data collection.
-
-Initial adapters:
-
-- `xAdapter`
-- `threadsAdapter`
-
-Each adapter should expose a shared interface:
-
-```ts
-interface PlatformAdapter {
-  platform: "x" | "threads";
-  isSupportedPage(): boolean;
-  observeVisibleFeed(onItems: (items: RawFeedItem[]) => void): void;
-  extractItem(node: Element): RawFeedItem | null;
-}
-```
-
-### 5.2 DOM Extraction Layer
-
-Responsibilities:
-
-- observe viewport-visible content,
-- debounce DOM mutations,
-- deduplicate repeated nodes,
-- strip irrelevant UI text,
-- preserve author, timestamp, post body, engagement counts, and visible links,
-- and mark extraction confidence.
-
-Constraints:
-
-- Do not auto-scroll.
-- Do not click or expand content.
-- Do not process hidden DOM as user-visible evidence.
-
-### 5.3 Normalization Pipeline
-
-Responsibilities:
-
-- convert raw platform data into a canonical schema,
-- normalize text,
-- preserve platform-specific metadata,
-- hash content locally for deduplication,
-- and prepare analysis requests.
-
-Suggested canonical shape:
-
-```ts
-interface NormalizedFeedItem {
-  id: string;
-  platform: "x" | "threads";
-  url?: string;
-  authorHandle?: string;
-  authorDisplayName?: string;
-  accountSignals?: AccountSignals;
-  text: string;
-  visibleLinks: string[];
-  engagement?: EngagementSignals;
-  observedAt: string;
-  extractionConfidence: number;
-}
-```
-
-### 5.4 Local AI Analysis Engine
-
-Responsibilities:
-
-- send normalized visible content to the local runtime,
-- request structured JSON outputs,
-- validate model responses,
-- retry or degrade gracefully on invalid output,
-- and return score explanations with confidence estimates.
-
-Initial score categories:
-
-- toxicity score,
-- anger score,
-- fear score,
-- hostility score,
-- information density,
-- evidence presence,
-- propaganda risk,
-- bot signal,
-- coordination risk,
-- and summary quality.
-
-### 5.5 Scoring and Explanation Layer
-
-Responsibilities:
-
-- combine model outputs with deterministic heuristics,
-- produce calibrated scores from 0.0 to 1.0,
-- attach human-readable explanations,
-- show signal contribution rather than verdicts,
-- and distinguish between low confidence and low risk.
-
-Scores must never be presented as final truth. They are local risk estimates and attention-management hints.
-
-### 5.6 Feed Transformation Layer
-
-Responsibilities:
-
-- annotate posts with score badges,
-- visually de-emphasize high-noise items,
-- collapse high-toxicity items behind a reversible control,
-- provide short structured summaries,
-- and preserve access to original content.
-
-All transformations must be reversible by the user.
-
-### 5.7 Side Panel Dashboard
-
-Responsibilities:
-
-- show current session metrics,
-- show feed-level toxicity ratio,
-- show emotional exposure indicators,
-- show information density trends,
-- list recent high-risk patterns,
-- explain how scores are generated,
-- and provide user controls for collapse thresholds.
-
-### 5.8 Local Storage and Analytics
-
-Responsibilities:
-
-- persist local session summaries,
-- store normalized item hashes and scores,
-- track daily aggregate metrics,
-- avoid storing unnecessary raw feed text by default,
-- and provide a user-controlled data deletion path.
-
-For MVP, store raw text only when required for visible explanations or summaries. Prefer derived scores and hashes for longer retention.
-
----
-
-## 6. Milestones
+## 4. Milestone Checklist
 
 ### Milestone 0: Repository and Architecture Setup
 
-Deliverables:
+- [x] Create extension project structure
+- [x] Add `manifest.json`
+- [x] Add background service worker
+- [x] Add content script
+- [x] Add side panel HTML/CSS/JS
+- [x] Add MVP runbook
+- [x] Configure extension permissions conservatively
+- [x] Avoid external analytics or telemetry
+- [ ] Add TypeScript configuration
+- [ ] Add linting and formatting setup
+- [ ] Add shared domain type definitions
+- [ ] Add architecture decision record for local-first data handling
 
-- extension project scaffold,
-- TypeScript configuration,
-- linting and formatting,
-- shared domain types,
-- architecture decision record for local-first data handling,
-- and development instructions.
+Acceptance:
 
-Acceptance criteria:
-
-- extension builds locally,
-- side panel shell opens,
-- content script loads on test pages,
-- and no external analytics or telemetry is present.
+- [x] Manifest parses as valid JSON
+- [x] JavaScript files pass syntax checks
+- [ ] Extension builds through a formal build command
+- [ ] Extension loads cleanly through Chrome "Load unpacked"
 
 ### Milestone 1: X Visible Feed Extraction
 
-Deliverables:
+- [x] Detect X / Twitter hostnames
+- [x] Find visible X tweet candidates
+- [x] Extract visible tweet text
+- [x] Extract visible author handle when available
+- [x] Extract visible links
+- [x] Assign local stable IDs
+- [x] Deduplicate observed items
+- [x] Debounce DOM mutation scans
+- [x] Ignore off-viewport candidates
+- [ ] Verify selectors against live X
+- [ ] Add fixture-based regression examples
+- [ ] Improve extraction confidence calibration
 
-- X adapter,
-- viewport-aware DOM observer,
-- raw post extraction,
-- normalization pipeline,
-- duplicate detection,
-- extraction debug panel or logs.
+Acceptance:
 
-Acceptance criteria:
-
-- visible X posts are detected without auto-scrolling,
-- extracted fields are normalized consistently,
-- hidden content is ignored,
-- and repeated DOM updates do not create duplicate records.
+- [x] Implementation does not auto-scroll
+- [x] Implementation does not auto-click
+- [x] Implementation does not expand hidden content
+- [ ] Live X posts are detected reliably
+- [ ] Repeated DOM updates do not create duplicate visible annotations
 
 ### Milestone 2: Local Analysis Runtime Integration
 
-Deliverables:
+- [x] Add Ollama HTTP client
+- [x] Add model setting with default `llama3.2`
+- [x] Add structured JSON prompt
+- [x] Validate and normalize model scores
+- [x] Add heuristic fallback for unavailable Ollama
+- [x] Store model/source metadata with scores
+- [x] Avoid cloud analysis calls
+- [ ] Add explicit Ollama health check UI
+- [ ] Verify with a real local Ollama model
+- [ ] Add retry policy for malformed model output
 
-- Ollama client,
-- model availability check,
-- structured analysis prompt,
-- JSON response validator,
-- fallback behavior for unavailable runtime,
-- and basic scoring output.
+Acceptance:
 
-Acceptance criteria:
-
-- one visible post can be analyzed locally,
-- invalid model output is handled safely,
-- no raw content is sent to cloud services,
-- and the user can see local runtime status.
+- [x] One normalized item can be sent to local analysis code
+- [x] Invalid or unavailable model path degrades to local heuristic scoring
+- [x] No raw content is sent to cloud services by the extension code
+- [ ] User can clearly see whether Ollama or heuristic mode produced the score
 
 ### Milestone 3: Scoring, Explanation, and UI Annotation
 
-Deliverables:
+- [x] Add score schema in background result objects
+- [x] Add explanation schema in background result objects
+- [x] Add toxicity badge
+- [x] Add anger badge
+- [x] Add information-density badge
+- [x] Add explanation details UI
+- [x] Add reversible collapse control
+- [x] Add configurable collapse threshold
+- [x] Label heuristic explanations separately from local model explanations
+- [ ] Add low-confidence visual state
+- [ ] Add per-category score details in side panel
+- [ ] Add user override for a single collapsed item
 
-- score schema,
-- explanation schema,
-- score badge UI,
-- reversible collapse control,
-- summary display,
-- and user-configurable thresholds.
+Acceptance:
 
-Acceptance criteria:
-
-- high-toxicity posts can be collapsed and restored,
-- every score includes a short explanation,
-- the UI does not permanently hide or delete content,
-- and uncertain scores are labeled as uncertain.
+- [x] High-toxicity items can be collapsed and restored
+- [x] Every score includes at least one explanation
+- [x] UI does not permanently hide or delete content
+- [ ] Uncertain scores are explicitly labeled as uncertain
 
 ### Milestone 4: Side Panel Dashboard
 
-Deliverables:
+- [x] Add side panel shell
+- [x] Show analyzed item count
+- [x] Show high-toxicity item count
+- [x] Show average toxicity
+- [x] Show average information density
+- [x] Show recent signal list
+- [x] Add model setting control
+- [x] Add threshold control
+- [x] Add heuristic-only mode toggle
+- [x] Add raw-text storage toggle
+- [x] Add local score clearing button
+- [ ] Add emotional exposure time
+- [ ] Add feed-level outrage amplification ratio
+- [ ] Add discussion diversity score
+- [ ] Add privacy/compliance status panel
 
-- current session metrics,
-- feed-level aggregate scores,
-- emotional exposure indicators,
-- information density summary,
-- threshold controls,
-- and transparency notes.
+Acceptance:
 
-Acceptance criteria:
-
-- dashboard updates as visible posts are analyzed,
-- aggregate metrics match stored item scores,
-- controls affect content transformations immediately,
-- and the dashboard remains usable when the local model is unavailable.
+- [x] Dashboard can read local extension state
+- [x] Dashboard can update settings
+- [x] Dashboard can clear local score data
+- [ ] Dashboard has been verified while browsing live X / Threads
 
 ### Milestone 5: Threads Adapter
 
-Deliverables:
+- [x] Detect Threads hostnames
+- [x] Add best-effort Threads candidate selectors
+- [x] Reuse shared normalization path
+- [x] Reuse shared scoring and dashboard path
+- [ ] Verify selectors against live Threads
+- [ ] Add Threads fixture-based regression examples
+- [ ] Improve author and permalink extraction for Threads
 
-- Threads platform adapter,
-- adapter-specific selectors,
-- normalization compatibility checks,
-- and platform regression fixtures.
+Acceptance:
 
-Acceptance criteria:
-
-- visible Threads posts are extracted and analyzed,
-- shared scoring and dashboard code works without platform-specific branching,
-- and X behavior remains stable.
+- [ ] Visible Threads posts are extracted reliably
+- [x] Shared scoring code works without platform-specific branching after extraction
+- [ ] X behavior remains stable after Threads verification
 
 ### Milestone 6: Local Persistence and Daily Metrics
 
-Deliverables:
+- [x] Persist scores locally through `chrome.storage.local`
+- [x] Persist settings locally through `chrome.storage.local`
+- [x] Persist basic session metrics
+- [x] Provide local data clearing control
+- [x] Avoid storing raw visible text by default
+- [ ] Implement IndexedDB persistence
+- [ ] Add daily rollups
+- [ ] Add retention settings
+- [ ] Add export/import for local analytics
 
-- IndexedDB persistence,
-- session rollups,
-- daily metric aggregation,
-- retention settings,
-- and local data deletion control.
+Acceptance:
 
-Acceptance criteria:
-
-- scores survive extension reloads,
-- daily metrics are generated locally,
-- users can clear stored data,
-- and retention behavior is documented.
+- [x] Scores can survive extension runtime reload through local storage
+- [x] Users can clear stored score data
+- [ ] Daily metrics are generated locally
+- [ ] Retention behavior is documented in the UI
 
 ### Milestone 7: MVP Hardening
 
-Deliverables:
+- [x] Run syntax checks for current JavaScript files
+- [x] Validate `manifest.json`
+- [ ] Manually load extension in Chrome / Chromium
+- [ ] Test on X
+- [ ] Test on Threads
+- [ ] Test with Ollama available
+- [ ] Test with Ollama unavailable
+- [ ] Review extension permissions
+- [ ] Profile long-feed performance
+- [ ] Review memory usage
+- [ ] Build false-positive review set
+- [ ] Run privacy review against PRD constraints
+- [ ] Prepare MVP release checklist
 
-- performance profiling,
-- memory usage review,
-- false-positive review set,
-- privacy review,
-- UX review,
-- and MVP release checklist.
+Acceptance:
 
-Acceptance criteria:
-
-- extension remains responsive on long feeds,
-- local inference failures do not break browsing,
-- privacy constraints are verified,
-- and the MVP is ready for controlled personal use.
-
----
-
-## 7. Workstreams
-
-### Extension Platform
-
-- project scaffold,
-- manifest configuration,
-- background service worker,
-- content script lifecycle,
-- side panel routing,
-- extension permissions review.
-
-### Platform Extraction
-
-- X adapter,
-- Threads adapter,
-- viewport detection,
-- mutation observer,
-- deduplication,
-- extraction confidence.
-
-### Local Intelligence
-
-- Ollama health checks,
-- prompt templates,
-- structured output validation,
-- scoring calibration,
-- classifier integration path,
-- runtime error handling.
-
-### Product UX
-
-- score badges,
-- reversible collapse,
-- summaries,
-- side panel dashboard,
-- threshold controls,
-- transparency explanations.
-
-### Privacy and Storage
-
-- local-only persistence,
-- retention policy,
-- data deletion,
-- raw text minimization,
-- privacy test checklist.
-
-### Quality and Evaluation
-
-- platform fixture pages,
-- score regression examples,
-- false-positive review,
-- latency measurements,
-- memory profiling,
-- manual test scripts.
+- [ ] Extension remains responsive on long feeds
+- [ ] Local inference failures do not break browsing
+- [ ] Privacy constraints are verified manually
+- [ ] MVP is ready for controlled personal use
 
 ---
 
-## 8. Data Model Draft
+## 5. Data Model Checklist
 
-### Feed Item Score
-
-```ts
-interface FeedItemScore {
-  itemId: string;
-  model: string;
-  analyzedAt: string;
-  scores: {
-    toxicity: number;
-    anger: number;
-    fear: number;
-    hostility: number;
-    informationDensity: number;
-    evidencePresence: number;
-    propagandaRisk: number;
-    botSignal: number;
-    coordinationRisk: number;
-  };
-  confidence: number;
-  explanations: ScoreExplanation[];
-  summary?: string;
-}
-```
-
-### Score Explanation
-
-```ts
-interface ScoreExplanation {
-  category: string;
-  contribution: "low" | "medium" | "high";
-  reason: string;
-  evidence?: string[];
-}
-```
-
-### Session Metrics
-
-```ts
-interface SessionMetrics {
-  sessionId: string;
-  startedAt: string;
-  endedAt?: string;
-  postsViewed: number;
-  postsAnalyzed: number;
-  highToxicityPosts: number;
-  averageInformationDensity: number;
-  emotionalExposureMinutes?: number;
-}
-```
+- [x] Feed item local ID
+- [x] Platform field
+- [x] URL field when visible
+- [x] Author handle field when visible
+- [x] Author display name field when visible
+- [x] Visible links list
+- [x] Observed timestamp
+- [x] Extraction confidence estimate
+- [x] Toxicity score
+- [x] Anger score
+- [x] Fear score
+- [x] Hostility score
+- [x] Information density score
+- [x] Evidence presence score
+- [x] Propaganda risk score
+- [x] Bot signal score
+- [x] Coordination risk score
+- [x] Confidence field
+- [x] Explanations list
+- [x] Optional summary
+- [ ] Versioned schema migrations
+- [ ] Dedicated account reputation records
+- [ ] Daily metric records
 
 ---
 
-## 9. Prompting and Classification Policy
+## 6. Privacy and Compliance Gates
 
-The analysis prompt must require structured JSON and neutral language.
-
-The model should be instructed to:
-
-- analyze rhetorical and informational signals,
-- avoid political truth judgments,
-- avoid ideology classification,
-- separate toxicity from disagreement,
-- cite observable text signals,
-- estimate confidence,
-- and return uncertainty when evidence is weak.
-
-The model should not be asked to determine whether a political claim is true. If fact checking is ever added, it must be designed as a separate user-controlled feature with explicit source handling.
-
----
-
-## 10. Privacy and Compliance Gates
-
-Before MVP completion, verify that PCFA:
-
-- processes only visible or user-opened content,
-- does not auto-scroll,
-- does not auto-click,
-- does not collect hidden DOM content,
-- does not send raw feed content to cloud services,
-- does not create cross-user analytics,
-- stores data locally,
-- offers local data deletion,
-- and labels all scores as estimates.
-
-These gates should block release if violated.
+- [x] Process only visible candidate content
+- [x] Do not auto-scroll
+- [x] Do not auto-click
+- [x] Do not auto-expand hidden content
+- [x] Do not send raw feed content to cloud services
+- [x] Do not create cross-user analytics
+- [x] Store scores locally
+- [x] Offer local data deletion
+- [x] Label scores as estimates through explanations
+- [x] Avoid storing raw visible text by default
+- [ ] Add visible privacy status in side panel
+- [ ] Add manual privacy review notes before MVP release
 
 ---
 
-## 11. Testing Plan
+## 7. Testing Checklist
 
-### Unit Tests
+### Static Checks
 
-- normalization functions,
-- score validation,
-- threshold logic,
-- storage adapters,
-- prompt response parsing.
+- [x] `node --check src/background.js`
+- [x] `node --check src/content.js`
+- [x] `node --check src/sidepanel.js`
+- [x] `manifest.json` JSON parse check
+- [ ] Add automated lint command
+- [ ] Add automated test command
 
-### Integration Tests
+### Manual Checks
 
-- content script to background messaging,
-- background to Ollama runtime,
-- side panel metric updates,
-- storage persistence and reload behavior.
-
-### Manual Tests
-
-- X feed extraction,
-- Threads feed extraction,
-- local runtime unavailable state,
-- high-toxicity collapse and restore,
-- low-confidence explanation display,
-- data deletion flow.
-
-### Evaluation Tests
-
-- curated post examples,
-- expected score ranges,
-- false-positive review,
-- latency and memory profiling,
-- summary usefulness review.
+- [ ] Load unpacked extension in Chrome / Chromium
+- [ ] Open side panel from extension action
+- [ ] Browse X and confirm annotations appear
+- [ ] Browse Threads and confirm annotations appear
+- [ ] Confirm high-toxicity collapse can be restored
+- [ ] Confirm threshold control affects future collapse behavior
+- [ ] Confirm data clearing removes local scores
+- [ ] Confirm raw text is not stored when the toggle is off
+- [ ] Confirm heuristic fallback works when Ollama is unavailable
+- [ ] Confirm Ollama analysis works when Ollama is available
 
 ---
 
-## 12. Initial Risks
+## 8. Next Execution Tasks
 
-### Platform DOM Instability
-
-X and Threads DOM structures may change frequently.
-
-Mitigation:
-
-- isolate selectors in adapters,
-- use semantic and accessibility hints where possible,
-- maintain fixture snapshots,
-- and add extraction confidence.
-
-### Local Model Variability
-
-Different local models may return inconsistent scores.
-
-Mitigation:
-
-- validate structured output,
-- separate deterministic heuristics from model scoring,
-- record model name and version,
-- and start with conservative UI thresholds.
-
-### Overblocking or Perceived Censorship
-
-Users may interpret collapsed content as censorship.
-
-Mitigation:
-
-- keep all transformations reversible,
-- show original content access clearly,
-- provide threshold controls,
-- and explain that scores are local estimates.
-
-### Privacy Boundary Drift
-
-Feature pressure may push toward broader collection.
-
-Mitigation:
-
-- maintain explicit compliance gates,
-- document forbidden behaviors,
-- and review every new feature against the local-first rule.
-
-### Performance Cost
-
-DOM observation and local inference may affect browsing.
-
-Mitigation:
-
-- debounce extraction,
-- analyze only visible items,
-- cache scores by local content hash,
-- and provide runtime pause controls.
-
----
-
-## 13. Release Criteria for MVP v0.1
-
-The MVP is ready for controlled personal use when:
-
-- X and Threads visible posts can be analyzed locally,
-- high-noise content can be annotated and reversibly collapsed,
-- side panel metrics update from local scores,
-- all scoring includes explanations and confidence,
-- local model failures degrade gracefully,
-- no cloud feed processing is used,
-- local data can be deleted,
-- and privacy/compliance gates pass.
-
----
-
-## 14. Recommended Implementation Order
-
-1. Scaffold extension and shared types.
-2. Build X visible extraction end to end.
-3. Add local Ollama analysis for one post.
-4. Add score validation and explanations.
-5. Add content annotation and reversible collapse.
-6. Build the side panel dashboard.
-7. Add IndexedDB persistence and session metrics.
-8. Add Threads adapter.
-9. Run privacy, performance, and UX hardening.
-10. Package MVP v0.1 for controlled personal use.
+- [ ] Manually load the unpacked extension in Chrome / Chromium.
+- [ ] Fix any manifest, permission, or side panel loading issues found during manual load.
+- [ ] Test X live extraction and adjust selectors.
+- [ ] Test Threads live extraction and adjust selectors.
+- [ ] Run Ollama locally and verify structured model output.
+- [ ] Add a visible runtime health indicator for Ollama vs heuristic mode.
+- [ ] Add fixture pages for extraction regression tests.
+- [ ] Decide whether to keep dependency-free vanilla JS or migrate to TypeScript/Vite.
 

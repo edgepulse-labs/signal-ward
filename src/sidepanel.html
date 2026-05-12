@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PCFA</title>
+    <link rel="stylesheet" href="./sidepanel.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>PCFA</h1>
+          <p>Local cognitive firewall</p>
+        </div>
+        <span id="runtimeStatus" class="status">Local</span>
+      </header>
+
+      <section class="metrics" aria-label="Session metrics">
+        <article>
+          <span id="postsAnalyzed">0</span>
+          <label>Analyzed</label>
+        </article>
+        <article>
+          <span id="highToxicityPosts">0</span>
+          <label>High toxicity</label>
+        </article>
+        <article>
+          <span id="averageToxicity">0%</span>
+          <label>Avg toxicity</label>
+        </article>
+        <article>
+          <span id="averageInfo">0%</span>
+          <label>Avg info</label>
+        </article>
+      </section>
+
+      <section class="panel">
+        <h2>Controls</h2>
+        <label class="field">
+          <span>Ollama model</span>
+          <input id="model" type="text" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="field">
+          <span>Collapse threshold <b id="thresholdValue">72%</b></span>
+          <input id="toxicityThreshold" type="range" min="0" max="1" step="0.01">
+        </label>
+        <label class="toggle">
+          <input id="analysisMode" type="checkbox">
+          <span>Use heuristic mode only</span>
+        </label>
+        <label class="toggle">
+          <input id="storeRawText" type="checkbox">
+          <span>Store raw visible text locally</span>
+        </label>
+        <button id="saveSettings" type="button">Save settings</button>
+      </section>
+
+      <section class="panel">
+        <h2>Recent Signals</h2>
+        <div id="recentList" class="recent"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Privacy</h2>
+        <p>
+          PCFA analyzes visible or user-opened content only. Raw feed text is not stored by default.
+        </p>
+        <button id="clearData" class="danger" type="button">Clear local scores</button>
+      </section>
+    </main>
+    <script src="./sidepanel.js"></script>
+  </body>
+</html>
