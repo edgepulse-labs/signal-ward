@@ -37,6 +37,13 @@
 
       <section class="panel">
         <h2>Controls</h2>
+        <div class="health-row">
+          <div>
+            <strong id="ollamaStatus">Ollama not checked</strong>
+            <span id="ollamaDetail">Use the check button to verify localhost.</span>
+          </div>
+          <button id="checkOllama" class="secondary compact" type="button">Check</button>
+        </div>
         <label class="field">
           <span>Ollama model</span>
           <input id="model" type="text" autocomplete="off" spellcheck="false">
@@ -62,10 +69,13 @@
       </section>
 
       <section class="panel">
+        <h2>Category Details</h2>
+        <div id="categoryDetails" class="categories"></div>
+      </section>
+
+      <section class="panel">
         <h2>Privacy</h2>
-        <p>
-          PCFA analyzes visible or user-opened content only. Raw feed text is not stored by default.
-        </p>
+        <dl id="privacyStatus" class="privacy-status"></dl>
         <button id="clearData" class="danger" type="button">Clear local scores</button>
       </section>
     </main>

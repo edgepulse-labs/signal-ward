@@ -1,0 +1,13 @@
+{
+  "name": "signal-ward",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first Chrome MV3 cognitive firewall prototype.",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node scripts/validate-extension.js",
+    "check": "node scripts/validate-extension.js",
+    "lint": "node scripts/validate-extension.js"
+  },
+  "devDependencies": {}
+}

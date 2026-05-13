@@ -17,6 +17,12 @@ Implemented:
 
 ## Load Locally
 
+Run the local validation command before loading the unpacked extension:
+
+```sh
+npm run build
+```
+
 1. Open Chrome or Chromium.
 2. Go to `chrome://extensions`.
 3. Enable Developer mode.

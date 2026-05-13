@@ -2,7 +2,7 @@
 
 ## 文件狀態
 
-- 版本：v0.2 任務追蹤版
+- 版本：v0.3 任務追蹤版
 - 來源：`docs/PRD.md`
 - 範圍：MVP Phase 1
 - 目標平台：X 與 Threads
@@ -82,16 +82,16 @@
 - [x] 新增 MVP runbook
 - [x] 保守設定 extension permissions
 - [x] 避免外部 analytics 或 telemetry
-- [ ] 新增 TypeScript configuration
-- [ ] 新增 linting 與 formatting setup
-- [ ] 新增 shared domain type definitions
-- [ ] 新增 local-first data handling 的 architecture decision record
+- [x] 新增 TypeScript configuration
+- [x] 新增 linting 與 formatting setup
+- [x] 新增 shared domain type definitions
+- [x] 新增 local-first data handling 的 architecture decision record
 
 驗收：
 
 - [x] Manifest 可解析為有效 JSON
 - [x] JavaScript 檔案通過語法檢查
-- [ ] Extension 可透過正式 build command 建置
+- [x] Extension 可透過正式 build command 建置
 - [ ] Extension 可透過 Chrome "Load unpacked" 乾淨載入
 
 ### Milestone 1：X 可見 Feed 擷取
@@ -126,16 +126,16 @@
 - [x] 新增 Ollama 不可用時的 heuristic fallback
 - [x] 隨分數儲存 model/source metadata
 - [x] 避免雲端分析呼叫
-- [ ] 新增明確的 Ollama health check UI
+- [x] 新增明確的 Ollama health check UI
 - [ ] 以真實本機 Ollama 模型驗證
-- [ ] 新增 malformed model output 的 retry policy
+- [x] 新增 malformed model output 的 retry policy
 
 驗收：
 
 - [x] 一個 normalized item 可送入本機分析程式碼
 - [x] 模型無效或不可用時會降級為本機 heuristic scoring
 - [x] Extension code 不會將原始內容送到雲端服務
-- [ ] 使用者可清楚看出分數由 Ollama 或 heuristic mode 產生
+- [x] 使用者可清楚看出分數由 Ollama 或 heuristic mode 產生
 
 ### Milestone 3：評分、解釋與 UI 標註
 
@@ -148,8 +148,8 @@
 - [x] 新增 reversible collapse control
 - [x] 新增可設定的 collapse threshold
 - [x] 將 heuristic explanations 與 local model explanations 分開標示
-- [ ] 新增 low-confidence visual state
-- [ ] 在 side panel 新增 per-category score details
+- [x] 新增 low-confidence visual state
+- [x] 在 side panel 新增 per-category score details
 - [ ] 新增單一 collapsed item 的 user override
 
 驗收：
@@ -157,7 +157,7 @@
 - [x] 高毒性項目可被摺疊與還原
 - [x] 每個分數都至少包含一則解釋
 - [x] UI 不會永久隱藏或刪除內容
-- [ ] 不確定分數會被明確標示為 uncertain
+- [x] 不確定分數會被明確標示為 uncertain
 
 ### Milestone 4：側邊面板 Dashboard
 
@@ -175,7 +175,7 @@
 - [ ] 新增 emotional exposure time
 - [ ] 新增 feed-level outrage amplification ratio
 - [ ] 新增 discussion diversity score
-- [ ] 新增 privacy/compliance status panel
+- [x] 新增 privacy/compliance status panel
 
 驗收：
 
@@ -228,7 +228,7 @@
 - [ ] 測試 Threads
 - [ ] 測試 Ollama 可用狀態
 - [ ] 測試 Ollama 不可用狀態
-- [ ] Review extension permissions
+- [x] Review extension permissions
 - [ ] Profile long-feed performance
 - [ ] Review memory usage
 - [ ] 建立 false-positive review set
@@ -325,4 +325,3 @@
 - [ ] 新增 Ollama vs heuristic mode 的可見 runtime health indicator。
 - [ ] 新增 extraction regression tests 用的 fixture pages。
 - [ ] 決定繼續維持 dependency-free vanilla JS，或遷移到 TypeScript/Vite。
-

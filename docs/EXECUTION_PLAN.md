@@ -2,7 +2,7 @@
 
 ## Document Status
 
-- Version: v0.2 Task Tracker
+- Version: v0.3 Task Tracker
 - Source: `docs/PRD.md`
 - Scope: MVP Phase 1
 - Target platforms: X and Threads
@@ -82,16 +82,16 @@ Build a local-first browser assistant that analyzes only visible social feed con
 - [x] Add MVP runbook
 - [x] Configure extension permissions conservatively
 - [x] Avoid external analytics or telemetry
-- [ ] Add TypeScript configuration
-- [ ] Add linting and formatting setup
-- [ ] Add shared domain type definitions
-- [ ] Add architecture decision record for local-first data handling
+- [x] Add TypeScript configuration
+- [x] Add linting and formatting setup
+- [x] Add shared domain type definitions
+- [x] Add architecture decision record for local-first data handling
 
 Acceptance:
 
 - [x] Manifest parses as valid JSON
 - [x] JavaScript files pass syntax checks
-- [ ] Extension builds through a formal build command
+- [x] Extension builds through a formal build command
 - [ ] Extension loads cleanly through Chrome "Load unpacked"
 
 ### Milestone 1: X Visible Feed Extraction
@@ -126,16 +126,16 @@ Acceptance:
 - [x] Add heuristic fallback for unavailable Ollama
 - [x] Store model/source metadata with scores
 - [x] Avoid cloud analysis calls
-- [ ] Add explicit Ollama health check UI
+- [x] Add explicit Ollama health check UI
 - [ ] Verify with a real local Ollama model
-- [ ] Add retry policy for malformed model output
+- [x] Add retry policy for malformed model output
 
 Acceptance:
 
 - [x] One normalized item can be sent to local analysis code
 - [x] Invalid or unavailable model path degrades to local heuristic scoring
 - [x] No raw content is sent to cloud services by the extension code
-- [ ] User can clearly see whether Ollama or heuristic mode produced the score
+- [x] User can clearly see whether Ollama or heuristic mode produced the score
 
 ### Milestone 3: Scoring, Explanation, and UI Annotation
 
@@ -148,8 +148,8 @@ Acceptance:
 - [x] Add reversible collapse control
 - [x] Add configurable collapse threshold
 - [x] Label heuristic explanations separately from local model explanations
-- [ ] Add low-confidence visual state
-- [ ] Add per-category score details in side panel
+- [x] Add low-confidence visual state
+- [x] Add per-category score details in side panel
 - [ ] Add user override for a single collapsed item
 
 Acceptance:
@@ -157,7 +157,7 @@ Acceptance:
 - [x] High-toxicity items can be collapsed and restored
 - [x] Every score includes at least one explanation
 - [x] UI does not permanently hide or delete content
-- [ ] Uncertain scores are explicitly labeled as uncertain
+- [x] Uncertain scores are explicitly labeled as uncertain
 
 ### Milestone 4: Side Panel Dashboard
 
@@ -175,7 +175,7 @@ Acceptance:
 - [ ] Add emotional exposure time
 - [ ] Add feed-level outrage amplification ratio
 - [ ] Add discussion diversity score
-- [ ] Add privacy/compliance status panel
+- [x] Add privacy/compliance status panel
 
 Acceptance:
 
@@ -228,7 +228,7 @@ Acceptance:
 - [ ] Test on Threads
 - [ ] Test with Ollama available
 - [ ] Test with Ollama unavailable
-- [ ] Review extension permissions
+- [x] Review extension permissions
 - [ ] Profile long-feed performance
 - [ ] Review memory usage
 - [ ] Build false-positive review set
@@ -325,4 +325,3 @@ Acceptance:
 - [ ] Add a visible runtime health indicator for Ollama vs heuristic mode.
 - [ ] Add fixture pages for extraction regression tests.
 - [ ] Decide whether to keep dependency-free vanilla JS or migrate to TypeScript/Vite.
-

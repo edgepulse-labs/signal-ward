@@ -67,6 +67,11 @@
   color: #6a3900;
 }
 
+[data-pcfa-confidence] .pcfa-warning {
+  outline: 1px dashed rgba(106, 57, 0, 0.45);
+  outline-offset: 2px;
+}
+
 .pcfa-details {
   flex-basis: 100%;
   color: #1f3634;

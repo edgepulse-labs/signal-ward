@@ -15,6 +15,9 @@ const DEFAULT_METRICS = {
   lastAnalyzedAt: null
 };
 
+const OLLAMA_GENERATE_URL = "http://localhost:11434/api/generate";
+const OLLAMA_TAGS_URL = "http://localhost:11434/api/tags";
+
 chrome.runtime.onInstalled.addListener(async () => {
   const existing = await chrome.storage.local.get(["settings", "metrics", "scores"]);
   if (!existing.settings) {
@@ -56,6 +59,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "PCFA_CLEAR_DATA") {
     clearData()
       .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message?.type === "PCFA_CHECK_OLLAMA") {
+    checkOllamaHealth()
+      .then((health) => sendResponse({ ok: true, health }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
@@ -105,7 +115,7 @@ async function analyzeAndStore(item) {
 }
 
 async function analyzeWithOllama(item, settings) {
-  const response = await fetch("http://localhost:11434/api/generate", {
+  const response = await fetch(OLLAMA_GENERATE_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -121,13 +131,61 @@ async function analyzeWithOllama(item, settings) {
   }
 
   const data = await response.json();
-  const parsed = safeJsonParse(data.response);
+  let parsed = safeJsonParse(data.response);
+  if (!parsed) {
+    parsed = await retryOllamaJsonAnalysis(item, settings);
+  }
   const normalized = normalizeModelOutput(parsed);
 
   return {
     model: settings.model || DEFAULT_SETTINGS.model,
     source: "ollama",
     ...normalized
+  };
+}
+
+async function retryOllamaJsonAnalysis(item, settings) {
+  const response = await fetch(OLLAMA_GENERATE_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: settings.model || DEFAULT_SETTINGS.model,
+      stream: false,
+      format: "json",
+      prompt: `${buildAnalysisPrompt(item)}
+
+Your previous response could not be parsed as JSON. Return only valid JSON using the required schema.`
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ollama retry returned HTTP ${response.status}.`);
+  }
+
+  const data = await response.json();
+  const parsed = safeJsonParse(data.response);
+  if (!parsed) {
+    throw new Error("Ollama returned malformed JSON.");
+  }
+  return parsed;
+}
+
+async function checkOllamaHealth() {
+  const startedAt = Date.now();
+  const response = await fetch(OLLAMA_TAGS_URL, { method: "GET" });
+  if (!response.ok) {
+    throw new Error(`Ollama returned HTTP ${response.status}.`);
+  }
+
+  const data = await response.json();
+  const models = Array.isArray(data.models)
+    ? data.models.map((model) => model.name).filter(Boolean).slice(0, 12)
+    : [];
+  return {
+    available: true,
+    checkedAt: new Date().toISOString(),
+    latencyMs: Date.now() - startedAt,
+    models
   };
 }
 
@@ -423,13 +481,20 @@ function normalizeExplanations(explanations) {
 
 function safeJsonParse(value) {
   if (typeof value !== "string") {
-    return {};
+    return null;
   }
   try {
     return JSON.parse(value);
   } catch {
     const match = value.match(/\{[\s\S]*\}/);
-    return match ? JSON.parse(match[0]) : {};
+    if (!match) {
+      return null;
+    }
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return null;
+    }
   }
 }
 

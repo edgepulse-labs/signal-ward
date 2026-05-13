@@ -32,6 +32,12 @@ Not yet complete:
 
 ## Load the Extension Locally
 
+Run the local validation command first:
+
+```sh
+npm run build
+```
+
 1. Open Chrome or Chromium.
 2. Go to `chrome://extensions`.
 3. Enable Developer mode.
@@ -85,4 +91,3 @@ The execution plan is now the project task tracker. When implementation work fin
 - `docs/EXECUTION_PLAN.zh-TW.md`
 
 Keep the checkboxes synchronized so English and Traditional Chinese documentation describe the same project state.
-

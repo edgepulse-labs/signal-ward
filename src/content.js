@@ -156,12 +156,14 @@
     const shouldCollapse = scores.toxicity >= threshold;
 
     node.dataset.pcfaToxicity = String(scores.toxicity);
+    node.dataset.pcfaConfidence = String(result.confidence);
     node.dataset.pcfaItemId = result.itemId;
     box.innerHTML = "";
     box.append(
       createBadge("Toxicity", formatScore(scores.toxicity), scoreTone(scores.toxicity)),
       createBadge("Anger", formatScore(scores.anger), scoreTone(scores.anger)),
       createBadge("Info", formatScore(scores.informationDensity), scoreTone(1 - scores.informationDensity)),
+      createConfidenceBadge(result),
       createDetails(result)
     );
 
@@ -192,6 +194,14 @@
     return badge;
   }
 
+  function createConfidenceBadge(result) {
+    const confidence = Number(result.confidence || 0);
+    const isLowConfidence = confidence < 0.45 || result.item?.extractionConfidence < 0.55;
+    const label = isLowConfidence ? "Uncertain" : "Confidence";
+    const tone = isLowConfidence ? "warning" : "neutral";
+    return createBadge(label, formatScore(confidence), tone);
+  }
+
   function createDetails(result) {
     const details = document.createElement("details");
     details.className = "pcfa-details";
@@ -208,6 +218,12 @@
     if (result.summary) {
       const item = document.createElement("li");
       item.textContent = `Summary: ${result.summary}`;
+      list.append(item);
+    }
+
+    if (Number(result.confidence || 0) < 0.45) {
+      const item = document.createElement("li");
+      item.textContent = "Uncertain: this estimate has low model or extraction confidence.";
       list.append(item);
     }
 
