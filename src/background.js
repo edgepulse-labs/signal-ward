@@ -1,4 +1,5 @@
 importScripts("i18n.js");
+importScripts("settings.js");
 
 const DEFAULT_SETTINGS = {
   model: "llama3.2",
@@ -8,6 +9,8 @@ const DEFAULT_SETTINGS = {
   toxicityThreshold: 0.72,
   analysisMode: "ollama",
   storeRawText: false,
+  shareStatsWithServer: false,
+  enableCollectiveDefense: false,
   retentionDays: 30,
   language: "auto"
 };
@@ -103,14 +106,11 @@ async function analyzeAndStore(item) {
   const settings = { ...DEFAULT_SETTINGS, ...(stored.settings || {}) };
   const scores = stored.scores || {};
 
-  if (scores[item.id]) {
+  if (scores[item.id] && canUseCachedScore(scores[item.id], settings)) {
     return { ...scores[item.id], cached: true, settings };
   }
 
-  const analysis =
-    settings.analysisMode === "heuristic"
-      ? heuristicAnalysis(item, settings)
-      : await analyzeWithModelProvider(item, settings).catch(() => heuristicAnalysis(item, settings));
+  const analysis = await analyzeItem(item, settings);
 
   const result = {
     itemId: item.id,
@@ -119,12 +119,15 @@ async function analyzeAndStore(item) {
     analyzedAt: new Date().toISOString(),
     scores: analysis.scores,
     confidence: analysis.confidence,
+    classification: analysis.classification,
     explanations: analysis.explanations,
     summary:
       settings.storeRawText || analysis.source !== "heuristic"
         ? analysis.summary
         : t(settings, "heuristicSummaryFallback"),
     source: analysis.source,
+    requestedSource: analysis.requestedSource || analysis.source,
+    fallbackReason: analysis.fallbackReason,
     item: settings.storeRawText ? item : minimizeItem(item)
   };
 
@@ -138,6 +141,42 @@ async function analyzeAndStore(item) {
     dailyRollups: pruned.dailyRollups
   });
   return { ...result, cached: false, settings };
+}
+
+async function analyzeItem(item, settings) {
+  if (settings.analysisMode === "heuristic") {
+    return heuristicAnalysis(item, settings);
+  }
+
+  const requestedSource = desiredAnalysisSource(settings);
+  try {
+    const analysis = await analyzeWithModelProvider(item, settings);
+    return { ...analysis, requestedSource };
+  } catch (error) {
+    return {
+      ...heuristicAnalysis(item, settings),
+      requestedSource,
+      fallbackReason: error.message
+    };
+  }
+}
+
+function canUseCachedScore(score, settings) {
+  const requestedSource = desiredAnalysisSource(settings);
+  if (score.source !== requestedSource) {
+    return false;
+  }
+  if (requestedSource !== "heuristic" && score.model !== (settings.model || DEFAULT_SETTINGS.model)) {
+    return false;
+  }
+  return true;
+}
+
+function desiredAnalysisSource(settings) {
+  if (settings.analysisMode === "heuristic") {
+    return "heuristic";
+  }
+  return normalizeProvider(settings.modelProvider || DEFAULT_SETTINGS.modelProvider);
 }
 
 async function analyzeWithOllama(item, settings) {
@@ -161,7 +200,7 @@ async function analyzeWithOllama(item, settings) {
   if (!parsed) {
     parsed = await retryOllamaJsonAnalysis(item, settings);
   }
-  const normalized = normalizeModelOutput(parsed, settings);
+  const normalized = normalizeModelOutput(parsed, settings, item);
 
   return {
     model: settings.model || DEFAULT_SETTINGS.model,
@@ -208,7 +247,7 @@ async function analyzeWithOpenAICompatible(item, settings) {
   if (!parsed) {
     parsed = await retryOpenAICompatibleJsonAnalysis(item, settings);
   }
-  const normalized = normalizeModelOutput(parsed, settings);
+  const normalized = normalizeModelOutput(parsed, settings, item);
 
   return {
     model: settings.model || DEFAULT_SETTINGS.model,
@@ -350,6 +389,10 @@ Required JSON shape:
     "coordinationRisk": 0.0
   },
   "confidence": 0.0,
+  "classification": {
+    "primary": "ad|propaganda|chitchat|informational|opinion|unknown",
+    "confidence": 0.0
+  },
   "explanations": [
     {
       "category": "toxicity",
@@ -366,13 +409,14 @@ ${t(settings, "promptVisibleText")}:
 ${item.text}`;
 }
 
-function normalizeModelOutput(output, settings = DEFAULT_SETTINGS) {
-  const heuristic = heuristicAnalysis({ text: "" }, settings);
+function normalizeModelOutput(output, settings = DEFAULT_SETTINGS, item = { text: "" }) {
+  const heuristic = heuristicAnalysis(item, settings);
   const scores = { ...heuristic.scores, ...(output?.scores || {}) };
 
   return {
     scores: normalizeScores(scores),
     confidence: clampNumber(output?.confidence, 0, 1, 0.45),
+    classification: normalizeClassification(output?.classification, heuristic.classification),
     explanations: normalizeExplanations(output?.explanations, settings),
     summary: typeof output?.summary === "string" ? output.summary.slice(0, 280) : ""
   };
@@ -439,6 +483,40 @@ function heuristicAnalysis(item, settings = DEFAULT_SETTINGS) {
     "轉發出去",
     "不想讓你知道"
   ]);
+  const adHits = countMatches(lower, [
+    "buy now",
+    "limited offer",
+    "discount",
+    "promo code",
+    "sponsored",
+    "subscribe",
+    "free trial",
+    "shop now",
+    "立即購買",
+    "限時優惠",
+    "折扣",
+    "優惠碼",
+    "贊助",
+    "訂閱",
+    "免費試用",
+    "下單"
+  ]);
+  const chitchatHits = countMatches(lower, [
+    "lol",
+    "haha",
+    "just saying",
+    "good morning",
+    "random thought",
+    "anyone else",
+    "哈哈",
+    "笑死",
+    "早安",
+    "晚安",
+    "閒聊",
+    "隨便說",
+    "有人也",
+    "今天"
+  ]);
   const capsRatio = text ? (text.match(/[A-Z]/g) || []).length / Math.max(text.length, 1) : 0;
   const punctuationIntensity = Math.min(((text.match(/[!?！？]/g) || []).length / 6), 1);
 
@@ -453,6 +531,14 @@ function heuristicAnalysis(item, settings = DEFAULT_SETTINGS) {
   );
   const botSignal = clamp01(repetitionRatio(words) * 0.55);
   const coordinationRisk = clamp01(botSignal * 0.4 + sloganHits * 0.12);
+  const classification = classifyHeuristicContent({
+    adHits,
+    sloganHits,
+    chitchatHits,
+    evidencePresence,
+    informationDensity,
+    words
+  });
 
   return {
     model: "local-heuristic",
@@ -468,6 +554,7 @@ function heuristicAnalysis(item, settings = DEFAULT_SETTINGS) {
       botSignal,
       coordinationRisk
     },
+    classification,
     confidence: text.length > 30 ? 0.52 : 0.34,
     explanations: buildHeuristicExplanations({
       toxicity,
@@ -480,6 +567,40 @@ function heuristicAnalysis(item, settings = DEFAULT_SETTINGS) {
       coordinationRisk
     }, settings),
     summary: text ? summarizeText(text) : ""
+  };
+}
+
+function classifyHeuristicContent(signals) {
+  if (signals.adHits > 0) {
+    return {
+      primary: "ad",
+      confidence: clamp01(0.46 + signals.adHits * 0.18)
+    };
+  }
+  if (signals.sloganHits > 0) {
+    return {
+      primary: "propaganda",
+      confidence: clamp01(0.44 + signals.sloganHits * 0.16)
+    };
+  }
+  if (
+    signals.chitchatHits > 0 ||
+    (signals.words.length < 32 && signals.evidencePresence < 0.2 && signals.informationDensity < 0.28)
+  ) {
+    return {
+      primary: "chitchat",
+      confidence: clamp01(0.4 + signals.chitchatHits * 0.14)
+    };
+  }
+  if (signals.evidencePresence >= 0.35 || signals.informationDensity >= 0.45) {
+    return {
+      primary: "informational",
+      confidence: 0.48
+    };
+  }
+  return {
+    primary: "unknown",
+    confidence: 0.3
   };
 }
 
@@ -554,6 +675,8 @@ async function updateSettings(nextSettings = {}) {
     openaiApiKey: String(nextSettings.openaiApiKey ?? current.openaiApiKey ?? "").trim(),
     toxicityThreshold: clampNumber(nextSettings.toxicityThreshold, 0, 1, current.toxicityThreshold),
     retentionDays: Math.round(clampNumber(nextSettings.retentionDays, 1, 365, current.retentionDays)),
+    shareStatsWithServer: Boolean(nextSettings.shareStatsWithServer),
+    enableCollectiveDefense: Boolean(nextSettings.enableCollectiveDefense),
     language: normalizeLanguageSetting(nextSettings.language || current.language)
   };
   await chrome.storage.local.set({ settings });
@@ -690,6 +813,16 @@ function normalizeScores(scores) {
   };
 }
 
+function normalizeClassification(classification, fallback = { primary: "unknown", confidence: 0.3 }) {
+  const primary = String(classification?.primary || fallback.primary || "unknown");
+  return {
+    primary: ["ad", "propaganda", "chitchat", "informational", "opinion", "unknown"].includes(primary)
+      ? primary
+      : "unknown",
+    confidence: clampNumber(classification?.confidence, 0, 1, fallback.confidence || 0.3)
+  };
+}
+
 function normalizeExplanations(explanations, settings = DEFAULT_SETTINGS) {
   if (!Array.isArray(explanations)) {
     return [
@@ -745,20 +878,11 @@ function normalizeLanguageSetting(language) {
 }
 
 function normalizeOpenAIBaseUrlSetting(value) {
-  try {
-    return normalizeLocalOpenAIBaseUrl(value);
-  } catch {
-    return DEFAULT_SETTINGS.openaiBaseUrl;
-  }
+  return globalThis.PCFA_SETTINGS.normalizeOpenAIBaseUrlSetting(value);
 }
 
 function normalizeLocalOpenAIBaseUrl(value) {
-  const url = new URL(String(value || DEFAULT_SETTINGS.openaiBaseUrl));
-  const isLocalhost = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  if (!isLocalhost || !["http:", "https:"].includes(url.protocol)) {
-    throw new Error("OpenAI-compatible base URL must point to localhost or 127.0.0.1.");
-  }
-  return url.href.replace(/\/+$/, "");
+  return globalThis.PCFA_SETTINGS.normalizeLocalOpenAIBaseUrl(value);
 }
 
 function normalizeText(text) {

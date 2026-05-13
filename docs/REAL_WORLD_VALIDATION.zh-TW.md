@@ -41,7 +41,7 @@ npm test
 - extension 可在本機通過驗證，
 - fixtures 通過結構驗證，
 - 載入後沒有 Chrome extension errors，
-- `manifest.json` host permissions 只限制在 X、Threads 與本機 Ollama。
+- `manifest.json` host permissions 只限制在 X、Threads、本機端點與明確核准的遠端端點。
 
 ## 載入 Extension
 
@@ -112,7 +112,7 @@ curl http://localhost:1234/v1/models
 - API key：若 server 沒有要求真實 key，可用 `lm-studio` 這類本機 placeholder
 - Endpoint shape：`/v1/chat/completions`
 
-PCFA 目前使用 `/v1/chat/completions` 進行分析，並使用 `/v1/models` 做 health check。為了維持隱私邊界，base URL 必須指向 localhost 或 `127.0.0.1`；extension 會拒絕遠端 OpenAI-compatible 服務。
+PCFA 目前使用 `/v1/chat/completions` 進行分析，並使用 `/v1/models` 做 health check。為了維持隱私邊界，base URL 必須指向 localhost、`127.0.0.1`、IPv6 localhost，或明確 allowlist 的遠端 origin，例如 `https://ai.yihua.app`；其他遠端 OpenAI-compatible 服務會被 extension 拒絕。
 
 ## X 驗證
 
@@ -191,8 +191,9 @@ Live testing 時請確認：
 - Extension 不展開隱藏留言。
 - 除非刻意啟用，否則 raw visible text storage 維持關閉。
 - Side panel privacy status 顯示預設不儲存 raw visible text。
-- 使用 Ollama 時，分析相關 network activity 只連到 `localhost` / `127.0.0.1`。
-- 沒有新增 cloud analytics 或 centralized user database calls。
+- 使用 Ollama 或本機 OpenAI-compatible server 時，local analysis 相關 network activity 只連到本機端點。
+- 已核准的遠端 OpenAI-compatible analysis endpoint 會清楚顯示在 extension settings 與 host permissions 中。
+- 除非使用者明確啟用未來 opt-in settings，否則不應出現 cloud statistics 或 collective-defense calls。
 
 如需手動 privacy review，可使用受測頁面與 extension service worker 的 Chrome DevTools Network tab。
 

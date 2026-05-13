@@ -60,7 +60,7 @@ http://localhost:11434
 
 ## LM Studio 或 OpenAI-Compatible 服務
 
-PCFA 可以使用 Ollama 或本機 OpenAI-compatible server。Ollama 會呼叫：
+PCFA 可以使用 Ollama、本機 OpenAI-compatible server，或明確核准的 OpenAI-compatible endpoint。Ollama 會呼叫：
 
 ```text
 http://localhost:11434/api/generate
@@ -93,7 +93,7 @@ curl http://localhost:1234/v1/models
 - API key：若 server 沒有強制驗證，可使用 `lm-studio` 這類本機 placeholder
 - Chat endpoint：`/v1/chat/completions`
 
-PCFA 目前會透過 `/v1/chat/completions` 送出分析，並透過 `/v1/models` 檢查 health。為了維持隱私邊界，OpenAI-compatible base URL 必須指向 localhost 或 `127.0.0.1`。
+PCFA 目前會透過 `/v1/chat/completions` 送出分析，並透過 `/v1/models` 檢查 health。為了維持隱私邊界，OpenAI-compatible base URL 必須指向 localhost、`127.0.0.1`、IPv6 localhost，或 extension 明確 allowlist 的遠端 origin，例如 `https://ai.yihua.app`。
 
 ## 建議初始設定
 

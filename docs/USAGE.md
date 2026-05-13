@@ -44,9 +44,13 @@ Available settings:
 - Collapse threshold: score level where posts are collapsed.
 - Use heuristic mode only: disables Ollama calls and uses local keyword heuristics.
 - Store raw visible text locally: stores raw visible post text in local Chrome extension storage.
+- Help publish anonymous statistics to a server: opt-in cloud collaboration setting, off by default.
+- Enable collective defense suggestions: opt-in server-assisted early-folding setting, off by default.
 - Retention days: prunes locally stored scores and daily rollups after the selected number of days.
 
 Click "Save settings" after changing controls. Language changes apply immediately in the panel and are stored when settings are saved.
+
+Cloud collaboration settings are disabled by default. They should only send or receive server data after the user explicitly enables them and a collection server contract is implemented.
 
 ## Read Daily Rollups
 
@@ -58,7 +62,7 @@ In the side panel, click "Check" in the Ollama status row. PCFA calls the local 
 
 If Ollama fails, analysis automatically falls back to local heuristic scoring unless heuristic-only mode is already enabled.
 
-LM Studio and other OpenAI-compatible local servers are selectable from the Model provider control. Use a local base URL such as `http://localhost:1234/v1`; remote provider URLs are rejected to preserve the local-first privacy boundary.
+LM Studio and other OpenAI-compatible local servers are selectable from the Model provider control. Use a local base URL such as `http://localhost:1234/v1`. Only explicitly allowlisted remote OpenAI-compatible origins are accepted; other remote provider URLs are rejected to preserve the local-first privacy boundary.
 
 ## Clear Local Data
 

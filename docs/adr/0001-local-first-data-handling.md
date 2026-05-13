@@ -6,16 +6,17 @@ Accepted for MVP Phase 1.
 
 ## Context
 
-PCFA analyzes social feed content that is visible in the user's browser. The MVP must preserve user trust by avoiding cloud analysis, hidden scraping, automated platform actions, or centralized analytics.
+PCFA analyzes social feed content that is visible in the user's browser. The MVP must preserve user trust by avoiding hidden scraping, automated platform actions, raw-feed cloud upload, and centralized analytics unless the user explicitly opts into a documented cloud-assisted feature.
 
 ## Decision
 
 - The extension analyzes only DOM content that is currently visible to the user.
 - Raw visible text is not stored by default.
 - Scores, explanations, settings, and session metrics are stored in `chrome.storage.local`.
-- Ollama and OpenAI-compatible provider calls are restricted to `localhost` / `127.0.0.1`.
+- Ollama calls remain local. OpenAI-compatible provider calls are restricted to localhost-style endpoints or specific extension-allowlisted remote origins.
+- Statistics sharing and collective defense must remain opt-in and disabled by default.
 - If the selected local model provider is unavailable or returns malformed output after one retry, analysis falls back to local heuristic scoring.
-- The side panel must show whether heuristic mode, Ollama, or an OpenAI-compatible local provider produced scores and expose local data clearing.
+- The side panel must show whether heuristic mode, Ollama, or an OpenAI-compatible provider produced scores and expose local data clearing.
 
 ## Consequences
 

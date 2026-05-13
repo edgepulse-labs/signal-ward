@@ -11,7 +11,7 @@ PCFA 不是審查工具，也不判定政治真相。它是一個注意力保護
 已實作：
 
 - X 與 Threads 的可見貼文擷取，
-- 透過 Ollama 或本機 OpenAI-compatible server 進行本機分析，
+- 透過 Ollama、本機 OpenAI-compatible server，或已核准的 OpenAI-compatible endpoint 進行分析，
 - Ollama 不可用時的本機 heuristic fallback，
 - 毒性、憤怒、資訊密度、宣傳風險、bot signal 與 coordination risk 估計，
 - 可逆的高毒性內容摺疊，
@@ -19,6 +19,8 @@ PCFA 不是審查工具，也不判定政治真相。它是一個注意力保護
 - 側邊面板 metrics 與 settings，
 - 透過 `chrome.storage.local` 本機保存分數，
 - 本機 daily rollups 與 retention settings，
+- 針對廣告、宣傳、閒聊、資訊、意見與未知項目的內容類型標籤，
+- 未來統計資訊分享與聯防建議的 opt-in 設定，兩者預設關閉，
 - 本機資料清除，
 - 預設不儲存原始可見文字。
 
@@ -28,7 +30,7 @@ PCFA 不是審查工具，也不判定政治真相。它是一個注意力保護
 - 校準後的 classifier integration，
 - IndexedDB persistence，
 - attention-time analytics，
-- 正式測試套件，
+- 更完整的 browser-driven test coverage，
 - TypeScript/Vite 遷移決策。
 
 ## 在本機載入 Extension
@@ -63,7 +65,7 @@ ollama pull llama3.2
 
 如果 Ollama 不可用，PCFA 會降級使用內建的本機 heuristic scorer。
 
-若使用 LM Studio 或其他 OpenAI-compatible local server，請在 side panel 選擇 `OpenAI-compatible`，並設定 base URL，例如 `http://localhost:1234/v1`。
+若使用 LM Studio 或其他 OpenAI-compatible local server，請在 side panel 選擇 `OpenAI-compatible`，並設定 base URL，例如 `http://localhost:1234/v1`。Extension 明確 allowlist 的遠端 OpenAI-compatible endpoint 也可使用。
 
 ## 隱私邊界
 
@@ -73,8 +75,8 @@ PCFA 依照 local-first 約束設計：
 - 不自動捲動。
 - 不自動點擊。
 - 不展開隱藏留言。
-- 不將 feed 內容送到雲端服務。
-- 不建立跨使用者 analytics。
+- 預設不將原始 feed 內容送到雲端服務。
+- 除非使用者 opt-in 未來統計分享功能，否則不建立跨使用者 analytics。
 - 分數儲存在本機。
 - 除非使用者啟用設定，否則不儲存原始可見文字。
 
@@ -86,6 +88,16 @@ PCFA 依照 local-first 約束設計：
 - [使用指南，英文](docs/USAGE.md)
 - [真實環境驗證準備](docs/REAL_WORLD_VALIDATION.zh-TW.md)
 - [真實環境驗證準備，英文](docs/REAL_WORLD_VALIDATION.md)
+- [聯防系統與統計資訊分享規劃](docs/COLLECTIVE_DEFENSE_PLAN.zh-TW.md)
+- [聯防系統與統計資訊分享規劃，英文](docs/COLLECTIVE_DEFENSE_PLAN.md)
+- [EdgePulse Collector 整合規劃](docs/EDGEPULSE_COLLECTOR_INTEGRATION.zh-TW.md)
+- [EdgePulse Collector 整合規劃，英文](docs/EDGEPULSE_COLLECTOR_INTEGRATION.md)
+- [專注力與資訊獲取分類規劃](docs/FOCUS_INFORMATION_CLASSIFICATION.zh-TW.md)
+- [專注力與資訊獲取分類規劃，英文](docs/FOCUS_INFORMATION_CLASSIFICATION.md)
+- [Icon 生成 Prompt](docs/ICON_GENERATION_PROMPT.zh-TW.md)
+- [Icon 生成 Prompt，英文](docs/ICON_GENERATION_PROMPT.md)
+- [Unit Test 規劃與結果](docs/UNIT_TEST_PLAN_AND_RESULTS.zh-TW.md)
+- [Unit Test 規劃與結果，英文](docs/UNIT_TEST_PLAN_AND_RESULTS.md)
 - [產品需求文件](docs/PRD.md)
 - [產品需求文件，繁體中文](docs/PRD.zh-TW.md)
 - [執行規劃](docs/EXECUTION_PLAN.md)

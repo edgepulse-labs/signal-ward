@@ -181,17 +181,7 @@
     node.dataset.pcfaConfidence = String(result.confidence);
     node.dataset.pcfaItemId = result.itemId;
     box.innerHTML = "";
-    box.append(
-      createBadge(t("badgeToxicity"), formatScore(scores.toxicity), scoreTone(scores.toxicity)),
-      createBadge(t("badgeAnger"), formatScore(scores.anger), scoreTone(scores.anger)),
-      createBadge(
-        t("badgeInfo"),
-        formatScore(scores.informationDensity),
-        scoreTone(1 - scores.informationDensity)
-      ),
-      createConfidenceBadge(result),
-      createDetails(result)
-    );
+    box.append(createDetails(result));
 
     if (shouldCollapse) {
       expandNode(node);
@@ -204,14 +194,43 @@
   }
 
   function ensurePanel(node, itemId = "") {
-    let panel = node.querySelector(":scope > .pcfa-panel");
+    let panel = node.querySelector(".pcfa-panel");
     if (!panel) {
       panel = document.createElement("div");
       panel.className = "pcfa-panel";
-      panel.dataset.pcfaItemId = itemId;
-      node.prepend(panel);
+    }
+    panel.dataset.pcfaItemId = itemId;
+
+    const target = findAnnotationContainer(node);
+    if (panel.parentElement !== target) {
+      target.append(panel);
     }
     return panel;
+  }
+
+  function findAnnotationContainer(node) {
+    if (STATE.platform !== "x") {
+      return node;
+    }
+
+    const textNode = node.querySelector('[data-testid="tweetText"]');
+    if (!textNode) {
+      return node;
+    }
+
+    let candidate = textNode;
+    while (candidate.parentElement && candidate.parentElement !== node) {
+      const parent = candidate.parentElement;
+      if (
+        parent.querySelector('[data-testid="User-Name"]') &&
+        parent.querySelector('[role="group"]')
+      ) {
+        return parent;
+      }
+      candidate = parent;
+    }
+
+    return textNode.parentElement || node;
   }
 
   function createBadge(label, value, tone) {
@@ -233,8 +252,27 @@
     const details = document.createElement("details");
     details.className = "pcfa-details";
     const summary = document.createElement("summary");
-    summary.textContent =
-      result.source === "heuristic" ? t("heuristicExplanation") : t("localModelExplanation");
+    summary.className = "pcfa-summary";
+    summary.append(
+      createBadge(
+        t("badgeToxicity"),
+        formatScore(result.scores.toxicity),
+        scoreTone(result.scores.toxicity)
+      ),
+      createBadge(t("badgeAnger"), formatScore(result.scores.anger), scoreTone(result.scores.anger)),
+      createBadge(
+        t("badgeInfo"),
+        formatScore(result.scores.informationDensity),
+        scoreTone(1 - result.scores.informationDensity)
+      ),
+      createBadge(
+        t("badgeContentType"),
+        contentClassLabel(result.classification?.primary),
+        classificationTone(result.classification?.primary)
+      ),
+      createConfidenceBadge(result),
+      createExpandLabel(result)
+    );
     const list = document.createElement("ul");
 
     for (const explanation of result.explanations || []) {
@@ -249,6 +287,12 @@
       list.append(item);
     }
 
+    if (result.fallbackReason) {
+      const item = document.createElement("li");
+      item.textContent = t("modelFallbackNotice", { reason: result.fallbackReason });
+      list.append(item);
+    }
+
     if (Number(result.confidence || 0) < 0.45) {
       const item = document.createElement("li");
       item.textContent = t("uncertainDetail");
@@ -257,6 +301,14 @@
 
     details.append(summary, list);
     return details;
+  }
+
+  function createExpandLabel(result) {
+    const label = document.createElement("span");
+    label.className = "pcfa-expand-label";
+    label.textContent =
+      result.source === "heuristic" ? t("heuristicExplanation") : t("localModelExplanation");
+    return label;
   }
 
   function collapseNode(node, result) {
@@ -279,7 +331,9 @@
     notice.className = "pcfa-collapse-notice";
     notice.textContent = t("collapsedNotice", { toxicity: formatScore(result.scores.toxicity) });
     notice.append(control);
-    node.prepend(notice);
+    const target = findAnnotationContainer(node);
+    const panel = target.querySelector(".pcfa-panel");
+    target.insertBefore(notice, panel || null);
   }
 
   function expandNode(node) {
@@ -347,6 +401,25 @@
     if (value >= 0.7) return "high";
     if (value >= 0.4) return "medium";
     return "low";
+  }
+
+  function classificationTone(primary) {
+    if (primary === "ad" || primary === "propaganda") return "medium";
+    if (primary === "chitchat") return "neutral";
+    if (primary === "informational") return "low";
+    return "neutral";
+  }
+
+  function contentClassLabel(primary) {
+    const key = {
+      ad: "contentClassAd",
+      propaganda: "contentClassPropaganda",
+      chitchat: "contentClassChitchat",
+      informational: "contentClassInformational",
+      opinion: "contentClassOpinion",
+      unknown: "contentClassUnknown"
+    }[primary || "unknown"];
+    return t(key || "contentClassUnknown");
   }
 
   function categoryLabel(category) {

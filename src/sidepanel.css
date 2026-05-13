@@ -51,6 +51,13 @@ label {
   font-size: 13px;
 }
 
+.setting-note {
+  margin-top: 10px;
+  color: #65716e;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .status {
   padding: 5px 8px;
   border-radius: 999px;

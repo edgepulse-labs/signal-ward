@@ -14,6 +14,8 @@ const elements = {
   retentionDays: document.querySelector("#retentionDays"),
   analysisMode: document.querySelector("#analysisMode"),
   storeRawText: document.querySelector("#storeRawText"),
+  shareStatsWithServer: document.querySelector("#shareStatsWithServer"),
+  enableCollectiveDefense: document.querySelector("#enableCollectiveDefense"),
   checkOllama: document.querySelector("#checkOllama"),
   ollamaStatus: document.querySelector("#ollamaStatus"),
   ollamaDetail: document.querySelector("#ollamaDetail"),
@@ -84,6 +86,8 @@ function render(state) {
   elements.retentionDays.value = settings.retentionDays ?? 30;
   elements.analysisMode.checked = settings.analysisMode === "heuristic";
   elements.storeRawText.checked = Boolean(settings.storeRawText);
+  elements.shareStatsWithServer.checked = Boolean(settings.shareStatsWithServer);
+  elements.enableCollectiveDefense.checked = Boolean(settings.enableCollectiveDefense);
   syncProviderControls();
 
   renderRecent(scores);
@@ -145,6 +149,7 @@ function renderRecent(scores) {
     const detail = document.createElement("span");
     detail.textContent = t("recentDetail", {
       confidence: formatPercent(score.confidence),
+      contentType: contentClassLabel(score.classification?.primary),
       reason: score.explanations?.[0]?.reason || t("localEstimateRecorded")
     });
     item.append(title, detail);
@@ -186,7 +191,7 @@ function renderPrivacyStatus(state, scores) {
     [t("privacyAnalysisEndpoint"), analysisEndpointLabel(settings)],
     [t("privacyRawVisibleText"), settings.storeRawText || hasRawText ? t("storedLocally") : t("notStoredByDefault")],
     [t("privacyRetention"), t("retentionValue", { days: settings.retentionDays || 30 })],
-    [t("privacyCloudServices"), t("noExtensionCloudCalls")],
+    [t("privacyCloudServices"), cloudServicesLabel(settings)],
     [t("privacyDataClearing"), t("availableFromPanel")]
   ];
 
@@ -281,7 +286,9 @@ function readSettingsForm() {
     toxicityThreshold: Number(elements.toxicityThreshold.value),
     retentionDays: Number(elements.retentionDays.value),
     analysisMode: elements.analysisMode.checked ? "heuristic" : "ollama",
-    storeRawText: elements.storeRawText.checked
+    storeRawText: elements.storeRawText.checked,
+    shareStatsWithServer: elements.shareStatsWithServer.checked,
+    enableCollectiveDefense: elements.enableCollectiveDefense.checked
   };
   return settings;
 }
@@ -335,6 +342,29 @@ function analysisEndpointLabel(settings) {
     });
   }
   return t("endpointOllamaFallback");
+}
+
+function cloudServicesLabel(settings) {
+  const enabled = [];
+  if (settings.shareStatsWithServer) {
+    enabled.push(t("statsSharingEnabled"));
+  }
+  if (settings.enableCollectiveDefense) {
+    enabled.push(t("collectiveDefenseEnabled"));
+  }
+  return enabled.length ? enabled.join(" / ") : t("noExtensionCloudCalls");
+}
+
+function contentClassLabel(primary) {
+  const key = {
+    ad: "contentClassAd",
+    propaganda: "contentClassPropaganda",
+    chitchat: "contentClassChitchat",
+    informational: "contentClassInformational",
+    opinion: "contentClassOpinion",
+    unknown: "contentClassUnknown"
+  }[primary || "unknown"];
+  return t(key || "contentClassUnknown");
 }
 
 function t(key, values) {

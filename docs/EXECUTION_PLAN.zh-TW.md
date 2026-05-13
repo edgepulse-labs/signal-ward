@@ -41,6 +41,7 @@
 - [x] 可見 DOM 擷取
 - [x] 貼文正規化
 - [x] 透過 Ollama 進行本機分析
+- [x] 透過本機或明確 allowlist endpoint 進行 OpenAI-compatible 分析
 - [x] Ollama 不可用時的本機 heuristic fallback
 - [x] 毒性評分
 - [x] 情緒評分
@@ -50,6 +51,7 @@
 - [x] 非破壞式貼文標註
 - [x] 可逆的高毒性內容摺疊
 - [x] 側邊面板 dashboard
+- [x] 未來統計分享與聯防的 opt-in settings，預設關閉
 - [x] 透過 `chrome.storage.local` 本機保存分數與 session 指標
 - [x] 透明的評分解釋
 - [x] 英文與繁體中文 UI 多語系，並依瀏覽器語言自動選擇
@@ -127,10 +129,11 @@
 - [x] 驗證並正規化模型分數
 - [x] 新增 Ollama 不可用時的 heuristic fallback
 - [x] 隨分數儲存 model/source metadata
-- [x] 避免雲端分析呼叫
+- [x] 避免未核准的雲端分析呼叫
+- [x] 將遠端 OpenAI-compatible 分析限制在明確 allowlist origins
 - [x] 新增明確的 Ollama health check UI
 - [ ] 以真實本機 Ollama 模型驗證
-- [ ] 以 LM Studio 或其他 OpenAI-compatible local server 驗證
+- [ ] 以 LM Studio、其他本機 server，或核准的 OpenAI-compatible endpoint 驗證
 - [x] 新增 malformed model output 的 retry policy
 
 驗收：
@@ -138,7 +141,8 @@
 - [x] 一個 normalized item 可送入本機分析程式碼
 - [x] 模型無效或不可用時會降級為本機 heuristic scoring
 - [x] Extension code 不會將原始內容送到雲端服務
-- [x] 使用者可清楚看出分數由 Ollama 或 heuristic mode 產生
+- [x] 雲端統計與聯防設定預設關閉
+- [x] 使用者可清楚看出分數由 Ollama、OpenAI-compatible 或 heuristic mode 產生
 
 ### Milestone 3：評分、解釋與 UI 標註
 
@@ -283,6 +287,7 @@
 - [x] 不自動點擊
 - [x] 不自動展開隱藏內容
 - [x] 不將原始 feed 內容送到雲端服務
+- [x] 文件化 EdgePulse Collector 整合，用於 opt-in 統計收集
 - [x] 不建立跨使用者 analytics
 - [x] Scores 儲存在本機
 - [x] 提供本機資料刪除

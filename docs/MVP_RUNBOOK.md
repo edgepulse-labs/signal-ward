@@ -7,7 +7,7 @@ This repository now contains a dependency-free Chrome Manifest V3 extension prot
 Implemented:
 
 - visible post extraction for X and Threads,
-- local analysis through Ollama or a local OpenAI-compatible server,
+- analysis through Ollama, a local OpenAI-compatible server, or an approved OpenAI-compatible endpoint,
 - heuristic fallback when Ollama is unavailable,
 - local score persistence through `chrome.storage.local`,
 - local daily rollups and retention settings,
@@ -15,6 +15,7 @@ Implemented:
 - reversible high-toxicity collapsing,
 - side panel metrics and controls,
 - local data clearing.
+- opt-in cloud collaboration settings for future statistics sharing and collective defense, disabled by default.
 
 ## Load Locally
 
@@ -51,6 +52,7 @@ If Ollama is unavailable, the MVP uses the built-in local heuristic scorer.
 - It does not auto-scroll, auto-click, or expand hidden content.
 - Raw visible text is not stored by default.
 - Scores and minimal item metadata are stored locally in Chrome extension storage.
+- Cloud statistics sharing and collective defense are disabled by default.
 - The side panel includes a local data clearing control.
 
 ## Known MVP Limits
@@ -65,6 +67,9 @@ If Ollama is unavailable, the MVP uses the built-in local heuristic scorer.
 - [Installation and Setup](INSTALLATION.md)
 - [Usage Guide](USAGE.md)
 - [Real-World Validation Prep](REAL_WORLD_VALIDATION.md)
+- [Collective Defense Plan](COLLECTIVE_DEFENSE_PLAN.md)
+- [EdgePulse Collector Integration](EDGEPULSE_COLLECTOR_INTEGRATION.md)
+- [Icon Generation Prompt](ICON_GENERATION_PROMPT.md)
 - [安裝與設定](INSTALLATION.zh-TW.md)
 - [使用指南](USAGE.zh-TW.md)
 - [真實環境驗證準備](REAL_WORLD_VALIDATION.zh-TW.md)

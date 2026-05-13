@@ -41,6 +41,7 @@ Build a local-first browser assistant that analyzes only visible social feed con
 - [x] Visible DOM extraction
 - [x] Post normalization
 - [x] Local analysis through Ollama
+- [x] OpenAI-compatible analysis through local or explicitly allowlisted endpoints
 - [x] Heuristic local fallback when Ollama is unavailable
 - [x] Toxicity scoring
 - [x] Emotion scoring
@@ -50,6 +51,7 @@ Build a local-first browser assistant that analyzes only visible social feed con
 - [x] Non-destructive post annotation
 - [x] Reversible high-toxicity collapsing
 - [x] Side panel dashboard
+- [x] Opt-in settings for future statistics sharing and collective defense, disabled by default
 - [x] Local score and session metric persistence through `chrome.storage.local`
 - [x] Transparent scoring explanations
 - [x] English and Traditional Chinese UI localization with browser-language auto selection
@@ -127,10 +129,11 @@ Acceptance:
 - [x] Validate and normalize model scores
 - [x] Add heuristic fallback for unavailable Ollama
 - [x] Store model/source metadata with scores
-- [x] Avoid cloud analysis calls
+- [x] Avoid unapproved cloud analysis calls
+- [x] Restrict remote OpenAI-compatible analysis to explicitly allowlisted origins
 - [x] Add explicit Ollama health check UI
 - [ ] Verify with a real local Ollama model
-- [ ] Verify with LM Studio or another OpenAI-compatible local server
+- [ ] Verify with LM Studio, another local server, or an approved OpenAI-compatible endpoint
 - [x] Add retry policy for malformed model output
 
 Acceptance:
@@ -138,7 +141,8 @@ Acceptance:
 - [x] One normalized item can be sent to local analysis code
 - [x] Invalid or unavailable model path degrades to local heuristic scoring
 - [x] No raw content is sent to cloud services by the extension code
-- [x] User can clearly see whether Ollama or heuristic mode produced the score
+- [x] Cloud statistics and collective-defense settings default to off
+- [x] User can clearly see whether Ollama, OpenAI-compatible, or heuristic mode produced the score
 
 ### Milestone 3: Scoring, Explanation, and UI Annotation
 
@@ -283,6 +287,7 @@ Acceptance:
 - [x] Do not auto-click
 - [x] Do not auto-expand hidden content
 - [x] Do not send raw feed content to cloud services
+- [x] Document EdgePulse Collector integration for opt-in statistics collection
 - [x] Do not create cross-user analytics
 - [x] Store scores locally
 - [x] Offer local data deletion

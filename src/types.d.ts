@@ -1,5 +1,6 @@
 export type FeedPlatform = "x" | "threads";
 export type AnalysisSource = "ollama" | "openai-compatible" | "heuristic";
+export type ContentClass = "ad" | "propaganda" | "chitchat" | "informational" | "opinion" | "unknown";
 
 export interface FeedItem {
   id: string;
@@ -34,6 +35,11 @@ export interface SignalExplanation {
   reason: string;
 }
 
+export interface ContentClassification {
+  primary: ContentClass;
+  confidence: number;
+}
+
 export interface AnalysisResult {
   itemId: string;
   platform: FeedPlatform;
@@ -41,9 +47,12 @@ export interface AnalysisResult {
   analyzedAt: string;
   scores: SignalScores;
   confidence: number;
+  classification: ContentClassification;
   explanations: SignalExplanation[];
   summary: string;
   source: AnalysisSource;
+  requestedSource?: AnalysisSource;
+  fallbackReason?: string;
   item: Partial<FeedItem> & Pick<FeedItem, "id" | "platform">;
 }
 
@@ -55,6 +64,8 @@ export interface Settings {
   toxicityThreshold: number;
   analysisMode: "ollama" | "heuristic";
   storeRawText: boolean;
+  shareStatsWithServer: boolean;
+  enableCollectiveDefense: boolean;
   retentionDays: number;
   language: "auto" | "en" | "zh-TW";
 }

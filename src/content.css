@@ -14,10 +14,10 @@
 }
 
 .pcfa-panel {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  clear: both;
   margin: 8px 0;
   padding: 8px;
   border: 1px solid rgba(48, 92, 88, 0.22);
@@ -25,6 +25,10 @@
   background: rgba(245, 249, 247, 0.96);
   color: #143835;
   font: 12px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+article[data-testid="tweet"] .pcfa-panel {
+  margin-top: 10px;
 }
 
 .pcfa-badge {
@@ -73,18 +77,39 @@
 }
 
 .pcfa-details {
-  flex-basis: 100%;
   color: #1f3634;
 }
 
 .pcfa-details summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   cursor: pointer;
   font-weight: 650;
+  list-style-position: inside;
+}
+
+.pcfa-details summary::marker {
+  color: #31524e;
+}
+
+.pcfa-details summary::-webkit-details-marker {
+  color: #31524e;
+}
+
+.pcfa-expand-label {
+  color: #31524e;
+  white-space: nowrap;
 }
 
 .pcfa-details ul {
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   padding-left: 18px;
+}
+
+.pcfa-details li + li {
+  margin-top: 4px;
 }
 
 .pcfa-collapsed {

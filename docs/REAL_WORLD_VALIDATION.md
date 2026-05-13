@@ -41,7 +41,7 @@ Confirm:
 - the extension validates locally,
 - fixtures pass structural validation,
 - there are no Chrome extension errors after loading,
-- `manifest.json` host permissions are limited to X, Threads, and local Ollama.
+- `manifest.json` host permissions are limited to X, Threads, local endpoints, and explicitly approved remote endpoints.
 
 ## Load the Extension
 
@@ -112,7 +112,7 @@ In the PCFA side panel, validate these settings:
 - API key: local placeholder such as `lm-studio`, unless the server requires a real key
 - Endpoint shape: `/v1/chat/completions`
 
-PCFA currently uses `/v1/chat/completions` for analysis and `/v1/models` for health checks. For privacy, base URLs must point to localhost or `127.0.0.1`; remote OpenAI-compatible services are rejected by the extension.
+PCFA currently uses `/v1/chat/completions` for analysis and `/v1/models` for health checks. For privacy, base URLs must point to localhost, `127.0.0.1`, IPv6 localhost, or an explicitly allowlisted remote origin such as `https://ai.yihua.app`; other remote OpenAI-compatible services are rejected by the extension.
 
 ## X Validation
 
@@ -191,8 +191,9 @@ During live testing, confirm:
 - The extension does not expand hidden comments.
 - Raw visible text storage remains off unless deliberately enabled.
 - The side panel privacy status says raw visible text is not stored by default.
-- Network activity for analysis goes only to `localhost` / `127.0.0.1` when Ollama is used.
-- No cloud analytics or centralized user database calls are introduced.
+- Network activity for local analysis goes only to local endpoints when Ollama or a local OpenAI-compatible server is used.
+- Approved remote OpenAI-compatible analysis endpoints are visible in extension settings and host permissions.
+- Cloud statistics and collective-defense calls remain absent unless the user explicitly enables those future opt-in settings.
 
 Use Chrome DevTools Network tab on the tested page and the extension service worker if a manual privacy review is needed.
 

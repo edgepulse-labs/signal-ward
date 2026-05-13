@@ -60,7 +60,7 @@ Open the PCFA side panel and click "Check" in the Ollama status row to verify th
 
 ## LM Studio or OpenAI-Compatible Servers
 
-PCFA can use either Ollama or a local OpenAI-compatible server. Ollama calls:
+PCFA can use Ollama, a local OpenAI-compatible server, or an explicitly approved OpenAI-compatible endpoint. Ollama calls:
 
 ```text
 http://localhost:11434/api/generate
@@ -93,7 +93,7 @@ In the side panel, use these settings:
 - API key: a local placeholder such as `lm-studio`, unless your server enforces a real key
 - Chat endpoint: `/v1/chat/completions`
 
-PCFA currently sends analysis through `/v1/chat/completions` and checks health through `/v1/models`. For privacy, OpenAI-compatible base URLs must point to localhost or `127.0.0.1`.
+PCFA currently sends analysis through `/v1/chat/completions` and checks health through `/v1/models`. For privacy, OpenAI-compatible base URLs must point to localhost, `127.0.0.1`, IPv6 localhost, or a specific extension-allowlisted remote origin such as `https://ai.yihua.app`.
 
 ## Recommended First Settings
 
