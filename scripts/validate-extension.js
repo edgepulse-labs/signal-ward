@@ -26,6 +26,21 @@ if (manifest.manifest_version !== 3) {
   throw new Error("manifest.json must use Manifest V3.");
 }
 
+const requiredIconFiles = [
+  "assets/icons/icon-16.png",
+  "assets/icons/icon-32.png",
+  "assets/icons/icon-48.png",
+  "assets/icons/icon-128.png",
+  "assets/icons/icon-512.png",
+  "assets/icons/icon-source.png"
+];
+
+for (const file of requiredIconFiles) {
+  if (!fs.existsSync(path.join(root, file))) {
+    throw new Error(`${file} is missing.`);
+  }
+}
+
 const jsFiles = [
   "src/background.js",
   "src/content.js",

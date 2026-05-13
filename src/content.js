@@ -253,6 +253,7 @@
     details.className = "pcfa-details";
     const summary = document.createElement("summary");
     summary.className = "pcfa-summary";
+    summary.append(createBrandMark());
     summary.append(
       createBadge(
         t("badgeToxicity"),
@@ -301,6 +302,19 @@
 
     details.append(summary, list);
     return details;
+  }
+
+  function createBrandMark() {
+    const brand = document.createElement("span");
+    brand.className = "pcfa-brand";
+    const icon = document.createElement("img");
+    icon.className = "pcfa-brand-icon";
+    icon.alt = "";
+    icon.src = chrome.runtime.getURL("assets/icons/icon-32.png");
+    const text = document.createElement("span");
+    text.textContent = "PCFA";
+    brand.append(icon, text);
+    return brand;
   }
 
   function createExpandLabel(result) {
