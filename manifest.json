@@ -18,6 +18,8 @@
     "https://ai.yihua.app/*",
     "https://x.com/*",
     "https://twitter.com/*",
+    "https://www.threads.com/*",
+    "https://threads.com/*",
     "https://www.threads.net/*",
     "https://threads.net/*"
   ],
@@ -29,6 +31,8 @@
       "matches": [
         "https://x.com/*",
         "https://twitter.com/*",
+        "https://www.threads.com/*",
+        "https://threads.com/*",
         "https://www.threads.net/*",
         "https://threads.net/*"
       ],
@@ -46,6 +50,8 @@
       "matches": [
         "https://x.com/*",
         "https://twitter.com/*",
+        "https://www.threads.com/*",
+        "https://threads.com/*",
         "https://www.threads.net/*",
         "https://threads.net/*"
       ]

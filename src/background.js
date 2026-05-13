@@ -218,25 +218,29 @@ async function analyzeWithModelProvider(item, settings) {
 
 async function analyzeWithOpenAICompatible(item, settings) {
   const baseUrl = normalizeLocalOpenAIBaseUrl(settings.openaiBaseUrl);
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: buildOpenAIHeaders(settings),
-    body: JSON.stringify({
-      model: settings.model || DEFAULT_SETTINGS.model,
-      temperature: 0,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: t(settings, "promptSystem")
-        },
-        {
-          role: "user",
-          content: buildAnalysisPrompt(item, settings)
-        }
-      ]
-    })
-  });
+  let response = await fetchOpenAICompatibleChatCompletion(baseUrl, settings, [
+    {
+      role: "system",
+      content: t(settings, "promptSystem")
+    },
+    {
+      role: "user",
+      content: buildAnalysisPrompt(item, settings)
+    }
+  ], true);
+
+  if (!response.ok && response.status >= 400 && response.status < 500) {
+    response = await fetchOpenAICompatibleChatCompletion(baseUrl, settings, [
+      {
+        role: "system",
+        content: t(settings, "promptSystem")
+      },
+      {
+        role: "user",
+        content: buildAnalysisPrompt(item, settings)
+      }
+    ], false);
+  }
 
   if (!response.ok) {
     throw new Error(`OpenAI-compatible provider returned HTTP ${response.status}.`);
@@ -284,26 +288,16 @@ ${t(settings, "promptRetry")}`
 
 async function retryOpenAICompatibleJsonAnalysis(item, settings) {
   const baseUrl = normalizeLocalOpenAIBaseUrl(settings.openaiBaseUrl);
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: buildOpenAIHeaders(settings),
-    body: JSON.stringify({
-      model: settings.model || DEFAULT_SETTINGS.model,
-      temperature: 0,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            t(settings, "promptSystemRetry")
-        },
-        {
-          role: "user",
-          content: buildAnalysisPrompt(item, settings)
-        }
-      ]
-    })
-  });
+  const response = await fetchOpenAICompatibleChatCompletion(baseUrl, settings, [
+    {
+      role: "system",
+      content: t(settings, "promptSystemRetry")
+    },
+    {
+      role: "user",
+      content: buildAnalysisPrompt(item, settings)
+    }
+  ], false);
 
   if (!response.ok) {
     throw new Error(`OpenAI-compatible retry returned HTTP ${response.status}.`);
@@ -315,6 +309,22 @@ async function retryOpenAICompatibleJsonAnalysis(item, settings) {
     throw new Error("OpenAI-compatible provider returned malformed JSON.");
   }
   return parsed;
+}
+
+async function fetchOpenAICompatibleChatCompletion(baseUrl, settings, messages, useJsonResponseFormat) {
+  const body = {
+    model: settings.model || DEFAULT_SETTINGS.model,
+    temperature: 0,
+    messages
+  };
+  if (useJsonResponseFormat) {
+    body.response_format = { type: "json_object" };
+  }
+  return fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: buildOpenAIHeaders(settings),
+    body: JSON.stringify(body)
+  });
 }
 
 async function checkModelProviderHealth(nextSettings = {}) {

@@ -50,11 +50,18 @@
 
   function boot() {
     injectPageMarker();
-    scanVisibleItems();
+    scheduleStartupScans();
     const mutationObserver = new MutationObserver(scheduleScan);
     mutationObserver.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("scroll", scheduleScan, { passive: true });
     window.addEventListener("resize", scheduleScan, { passive: true });
+  }
+
+  function scheduleStartupScans() {
+    scanVisibleItems();
+    for (const delay of [250, 750, 1500, 3000, 5000]) {
+      window.setTimeout(scanVisibleItems, delay);
+    }
   }
 
   function scheduleScan() {
@@ -88,12 +95,22 @@
 
   function getCandidateNodes() {
     if (STATE.platform === "x") {
-      return Array.from(document.querySelectorAll('article[data-testid="tweet"]'));
+      return uniqueElements(
+        Array.from(document.querySelectorAll('article[data-testid="tweet"], article[role="article"]'))
+      ).filter((node) => normalizeText(node.innerText).length > 20);
     }
 
-    return Array.from(
-      document.querySelectorAll('div[role="article"], div[data-pressable-container="true"]')
+    return uniqueElements(
+      Array.from(
+        document.querySelectorAll(
+          'article, div[role="article"], div[data-pressable-container="true"]'
+        )
+      )
     ).filter((node) => normalizeText(node.innerText).length > 40);
+  }
+
+  function uniqueElements(elements) {
+    return Array.from(new Set(elements));
   }
 
   function extractItem(node) {
@@ -387,6 +404,9 @@
       return "x";
     }
     if (host === "threads.net" || host === "www.threads.net") {
+      return "threads";
+    }
+    if (host === "threads.com" || host === "www.threads.com") {
       return "threads";
     }
     return "";
