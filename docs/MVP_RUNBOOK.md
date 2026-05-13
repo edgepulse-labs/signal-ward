@@ -58,3 +58,10 @@ If Ollama is unavailable, the MVP uses the built-in local heuristic scorer.
 - The heuristic scorer is intentionally conservative and is not a replacement for calibrated classifiers.
 - Side panel metrics count newly analyzed visible items; they are not yet full attention-time analytics.
 - IndexedDB is not yet used; this MVP uses `chrome.storage.local` for simpler extension-only persistence.
+
+## Related Guides
+
+- [Installation and Setup](INSTALLATION.md)
+- [Usage Guide](USAGE.md)
+- [安裝與設定](INSTALLATION.zh-TW.md)
+- [使用指南](USAGE.zh-TW.md)

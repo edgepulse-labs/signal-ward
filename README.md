@@ -77,6 +77,10 @@ PCFA is designed around local-first constraints:
 
 ## Project Documents
 
+- [Installation and Setup](docs/INSTALLATION.md)
+- [Installation and Setup, Traditional Chinese](docs/INSTALLATION.zh-TW.md)
+- [Usage Guide](docs/USAGE.md)
+- [Usage Guide, Traditional Chinese](docs/USAGE.zh-TW.md)
 - [Product Requirements Document](docs/PRD.md)
 - [Product Requirements Document, Traditional Chinese](docs/PRD.zh-TW.md)
 - [Execution Plan](docs/EXECUTION_PLAN.md)

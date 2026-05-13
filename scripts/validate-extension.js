@@ -46,6 +46,10 @@ const formattedFiles = [
   "src/types.d.ts",
   "docs/EXECUTION_PLAN.md",
   "docs/EXECUTION_PLAN.zh-TW.md",
+  "docs/INSTALLATION.md",
+  "docs/INSTALLATION.zh-TW.md",
+  "docs/USAGE.md",
+  "docs/USAGE.zh-TW.md",
   "docs/adr/0001-local-first-data-handling.md"
 ];
 
