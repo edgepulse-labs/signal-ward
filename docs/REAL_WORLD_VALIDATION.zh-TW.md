@@ -84,6 +84,38 @@ curl http://localhost:11434/api/tags
 3. 點選 Ollama 狀態列中的 "Check"。
 4. 確認顯示模型名稱與延遲。
 
+## LM Studio / OpenAI-Compatible 準備
+
+LM Studio 可以啟動提供 OpenAI-compatible endpoints 的本機 server。常見本機 base URL 是：
+
+```text
+http://localhost:1234/v1
+```
+
+可從 LM Studio 的 Developer tab 啟動 server，或執行：
+
+```sh
+lms server start
+```
+
+驗證 server：
+
+```sh
+curl http://localhost:1234/v1/models
+```
+
+重要 MVP 限制：目前 extension 還不會把分析請求送到 OpenAI-compatible endpoints。它目前只會把 model-backed requests 送到 Ollama 的 `/api/generate` endpoint，並透過 Ollama 的 `/api/tags` endpoint 檢查 health。
+
+本段可用來準備並記錄 LM Studio readiness，但除非 extension 已先加入 OpenAI-compatible provider setting，否則不要只用 LM Studio 結果標記 Ollama-backed validation 完成。
+
+當 provider 實作完成後，請驗證這些設定：
+
+- Provider：`openai-compatible`
+- Base URL：`http://localhost:1234/v1`，或你的本機 provider URL
+- Model：`/v1/models` 回傳的 model identifier
+- API key：若 server 沒有要求真實 key，可用 `lm-studio` 這類本機 placeholder
+- Endpoint shape：`/v1/chat/completions` 或 `/v1/responses`
+
 ## X 驗證
 
 準備：
@@ -186,6 +218,8 @@ Live testing 時請確認：
 Browser/version：
 Extension commit：
 Ollama model：
+OpenAI-compatible base URL：
+OpenAI-compatible model：
 
 Chrome load：
 X extraction：

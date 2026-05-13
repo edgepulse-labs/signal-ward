@@ -120,6 +120,7 @@ Acceptance:
 ### Milestone 2: Local Analysis Runtime Integration
 
 - [x] Add Ollama HTTP client
+- [ ] Add OpenAI-compatible local provider support
 - [x] Add model setting with default `llama3.2`
 - [x] Add structured JSON prompt
 - [x] Validate and normalize model scores
@@ -128,6 +129,7 @@ Acceptance:
 - [x] Avoid cloud analysis calls
 - [x] Add explicit Ollama health check UI
 - [ ] Verify with a real local Ollama model
+- [ ] Verify with LM Studio or another OpenAI-compatible local server
 - [x] Add retry policy for malformed model output
 
 Acceptance:

@@ -84,6 +84,38 @@ In the PCFA side panel:
 3. Click "Check" in the Ollama status row.
 4. Confirm that model names and latency appear.
 
+## LM Studio / OpenAI-Compatible Prep
+
+LM Studio can run a local server with OpenAI-compatible endpoints. Its common local base URL is:
+
+```text
+http://localhost:1234/v1
+```
+
+Start the LM Studio server from the Developer tab, or run:
+
+```sh
+lms server start
+```
+
+Verify the server:
+
+```sh
+curl http://localhost:1234/v1/models
+```
+
+Important MVP limitation: this extension does not yet send analysis requests to OpenAI-compatible endpoints. It currently sends model-backed requests only to Ollama's `/api/generate` endpoint and checks health through Ollama's `/api/tags` endpoint.
+
+Use this section to prepare and record LM Studio readiness, but do not mark Ollama-backed validation complete from LM Studio alone unless the extension has first gained an OpenAI-compatible provider setting.
+
+When that provider exists, validate these settings:
+
+- Provider: `openai-compatible`
+- Base URL: `http://localhost:1234/v1`, or your local provider URL
+- Model: the model identifier from `/v1/models`
+- API key: local placeholder such as `lm-studio`, unless the server requires a real key
+- Endpoint shape: `/v1/chat/completions` or `/v1/responses`
+
 ## X Validation
 
 Prepare:
@@ -186,6 +218,8 @@ Tester:
 Browser/version:
 Extension commit:
 Ollama model:
+OpenAI-compatible base URL:
+OpenAI-compatible model:
 
 Chrome load:
 X extraction:

@@ -120,6 +120,7 @@
 ### Milestone 2：本機分析 Runtime 整合
 
 - [x] 新增 Ollama HTTP client
+- [ ] 新增 OpenAI-compatible local provider support
 - [x] 新增 model setting，預設 `llama3.2`
 - [x] 新增 structured JSON prompt
 - [x] 驗證並正規化模型分數
@@ -128,6 +129,7 @@
 - [x] 避免雲端分析呼叫
 - [x] 新增明確的 Ollama health check UI
 - [ ] 以真實本機 Ollama 模型驗證
+- [ ] 以 LM Studio 或其他 OpenAI-compatible local server 驗證
 - [x] 新增 malformed model output 的 retry policy
 
 驗收：
