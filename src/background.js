@@ -381,13 +381,84 @@ async function fetchOpenAICompatibleChatCompletion(baseUrl, settings, messages, 
     messages
   };
   if (useJsonResponseFormat) {
-    body.response_format = { type: "json_object" };
+    body.response_format = {
+      type: "json_schema",
+      json_schema: {
+        name: "pcfa_analysis",
+        strict: false,
+        schema: analysisJsonSchema()
+      }
+    };
   }
   return fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: buildOpenAIHeaders(settings),
     body: JSON.stringify(body)
   });
+}
+
+function analysisJsonSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["scores", "confidence", "classification", "explanations", "summary"],
+    properties: {
+      scores: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "toxicity",
+          "anger",
+          "fear",
+          "hostility",
+          "informationDensity",
+          "evidencePresence",
+          "propagandaRisk",
+          "botSignal",
+          "coordinationRisk"
+        ],
+        properties: {
+          toxicity: { type: "number", minimum: 0, maximum: 1 },
+          anger: { type: "number", minimum: 0, maximum: 1 },
+          fear: { type: "number", minimum: 0, maximum: 1 },
+          hostility: { type: "number", minimum: 0, maximum: 1 },
+          informationDensity: { type: "number", minimum: 0, maximum: 1 },
+          evidencePresence: { type: "number", minimum: 0, maximum: 1 },
+          propagandaRisk: { type: "number", minimum: 0, maximum: 1 },
+          botSignal: { type: "number", minimum: 0, maximum: 1 },
+          coordinationRisk: { type: "number", minimum: 0, maximum: 1 }
+        }
+      },
+      confidence: { type: "number", minimum: 0, maximum: 1 },
+      classification: {
+        type: "object",
+        additionalProperties: false,
+        required: ["primary", "confidence"],
+        properties: {
+          primary: {
+            type: "string",
+            enum: ["ad", "propaganda", "chitchat", "informational", "opinion", "unknown"]
+          },
+          confidence: { type: "number", minimum: 0, maximum: 1 }
+        }
+      },
+      explanations: {
+        type: "array",
+        maxItems: 6,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["category", "contribution", "reason"],
+          properties: {
+            category: { type: "string" },
+            contribution: { type: "string", enum: ["low", "medium", "high"] },
+            reason: { type: "string" }
+          }
+        }
+      },
+      summary: { type: "string" }
+    }
+  };
 }
 
 async function checkModelProviderHealth(nextSettings = {}) {
