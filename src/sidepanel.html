@@ -45,8 +45,23 @@
           <button id="checkOllama" class="secondary compact" type="button">Check</button>
         </div>
         <label class="field">
-          <span>Ollama model</span>
+          <span>Model provider</span>
+          <select id="modelProvider">
+            <option value="ollama">Ollama</option>
+            <option value="openai-compatible">OpenAI-compatible</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Model</span>
           <input id="model" type="text" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="field provider-openai">
+          <span>OpenAI-compatible base URL</span>
+          <input id="openaiBaseUrl" type="url" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="field provider-openai">
+          <span>OpenAI-compatible API key</span>
+          <input id="openaiApiKey" type="password" autocomplete="off" spellcheck="false">
         </label>
         <label class="field">
           <span>Collapse threshold <b id="thresholdValue">72%</b></span>

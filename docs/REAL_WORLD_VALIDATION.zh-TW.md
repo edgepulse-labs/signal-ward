@@ -104,17 +104,15 @@ lms server start
 curl http://localhost:1234/v1/models
 ```
 
-重要 MVP 限制：目前 extension 還不會把分析請求送到 OpenAI-compatible endpoints。它目前只會把 model-backed requests 送到 Ollama 的 `/api/generate` endpoint，並透過 Ollama 的 `/api/tags` endpoint 檢查 health。
-
-本段可用來準備並記錄 LM Studio readiness，但除非 extension 已先加入 OpenAI-compatible provider setting，否則不要只用 LM Studio 結果標記 Ollama-backed validation 完成。
-
-當 provider 實作完成後，請驗證這些設定：
+在 PCFA side panel 中，請驗證這些設定：
 
 - Provider：`openai-compatible`
 - Base URL：`http://localhost:1234/v1`，或你的本機 provider URL
 - Model：`/v1/models` 回傳的 model identifier
 - API key：若 server 沒有要求真實 key，可用 `lm-studio` 這類本機 placeholder
-- Endpoint shape：`/v1/chat/completions` 或 `/v1/responses`
+- Endpoint shape：`/v1/chat/completions`
+
+PCFA 目前使用 `/v1/chat/completions` 進行分析，並使用 `/v1/models` 做 health check。為了維持隱私邊界，base URL 必須指向 localhost 或 `127.0.0.1`；extension 會拒絕遠端 OpenAI-compatible 服務。
 
 ## X 驗證
 

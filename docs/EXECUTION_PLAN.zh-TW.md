@@ -120,7 +120,7 @@
 ### Milestone 2：本機分析 Runtime 整合
 
 - [x] 新增 Ollama HTTP client
-- [ ] 新增 OpenAI-compatible local provider support
+- [x] 新增 OpenAI-compatible local provider support
 - [x] 新增 model setting，預設 `llama3.2`
 - [x] 新增 structured JSON prompt
 - [x] 驗證並正規化模型分數

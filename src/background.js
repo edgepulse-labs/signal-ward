@@ -1,5 +1,8 @@
 const DEFAULT_SETTINGS = {
   model: "llama3.2",
+  modelProvider: "ollama",
+  openaiBaseUrl: "http://localhost:1234/v1",
+  openaiApiKey: "lm-studio",
   toxicityThreshold: 0.72,
   analysisMode: "ollama",
   storeRawText: false,
@@ -76,7 +79,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message?.type === "PCFA_CHECK_OLLAMA") {
-    checkOllamaHealth()
+    checkModelProviderHealth(message.settings)
       .then((health) => sendResponse({ ok: true, health }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
@@ -90,10 +93,12 @@ async function analyzeAndStore(item) {
     throw new Error("Missing feed item id or text.");
   }
 
-  const { settings = DEFAULT_SETTINGS, scores = {} } = await chrome.storage.local.get([
+  const stored = await chrome.storage.local.get([
     "settings",
     "scores"
   ]);
+  const settings = { ...DEFAULT_SETTINGS, ...(stored.settings || {}) };
+  const scores = stored.scores || {};
 
   if (scores[item.id]) {
     return { ...scores[item.id], cached: true, settings };
@@ -102,7 +107,7 @@ async function analyzeAndStore(item) {
   const analysis =
     settings.analysisMode === "heuristic"
       ? heuristicAnalysis(item)
-      : await analyzeWithOllama(item, settings).catch(() => heuristicAnalysis(item));
+      : await analyzeWithModelProvider(item, settings).catch(() => heuristicAnalysis(item));
 
   const result = {
     itemId: item.id,
@@ -113,7 +118,7 @@ async function analyzeAndStore(item) {
     confidence: analysis.confidence,
     explanations: analysis.explanations,
     summary:
-      settings.storeRawText || analysis.source === "ollama"
+      settings.storeRawText || analysis.source !== "heuristic"
         ? analysis.summary
         : "Heuristic fallback analyzed this visible item locally.",
     source: analysis.source,
@@ -162,6 +167,54 @@ async function analyzeWithOllama(item, settings) {
   };
 }
 
+async function analyzeWithModelProvider(item, settings) {
+  if ((settings.modelProvider || DEFAULT_SETTINGS.modelProvider) === "openai-compatible") {
+    return analyzeWithOpenAICompatible(item, settings);
+  }
+  return analyzeWithOllama(item, settings);
+}
+
+async function analyzeWithOpenAICompatible(item, settings) {
+  const baseUrl = normalizeLocalOpenAIBaseUrl(settings.openaiBaseUrl);
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: buildOpenAIHeaders(settings),
+    body: JSON.stringify({
+      model: settings.model || DEFAULT_SETTINGS.model,
+      temperature: 0,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are PCFA, a local-first cognitive firewall assistant. Return valid JSON only."
+        },
+        {
+          role: "user",
+          content: buildAnalysisPrompt(item)
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI-compatible provider returned HTTP ${response.status}.`);
+  }
+
+  const data = await response.json();
+  let parsed = safeJsonParse(data.choices?.[0]?.message?.content);
+  if (!parsed) {
+    parsed = await retryOpenAICompatibleJsonAnalysis(item, settings);
+  }
+  const normalized = normalizeModelOutput(parsed);
+
+  return {
+    model: settings.model || DEFAULT_SETTINGS.model,
+    source: "openai-compatible",
+    ...normalized
+  };
+}
+
 async function retryOllamaJsonAnalysis(item, settings) {
   const response = await fetch(OLLAMA_GENERATE_URL, {
     method: "POST",
@@ -188,6 +241,50 @@ Your previous response could not be parsed as JSON. Return only valid JSON using
   return parsed;
 }
 
+async function retryOpenAICompatibleJsonAnalysis(item, settings) {
+  const baseUrl = normalizeLocalOpenAIBaseUrl(settings.openaiBaseUrl);
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: buildOpenAIHeaders(settings),
+    body: JSON.stringify({
+      model: settings.model || DEFAULT_SETTINGS.model,
+      temperature: 0,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "Return only valid JSON using the requested schema. Do not wrap the JSON in markdown."
+        },
+        {
+          role: "user",
+          content: buildAnalysisPrompt(item)
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI-compatible retry returned HTTP ${response.status}.`);
+  }
+
+  const data = await response.json();
+  const parsed = safeJsonParse(data.choices?.[0]?.message?.content);
+  if (!parsed) {
+    throw new Error("OpenAI-compatible provider returned malformed JSON.");
+  }
+  return parsed;
+}
+
+async function checkModelProviderHealth(nextSettings = {}) {
+  const current = (await chrome.storage.local.get("settings")).settings || {};
+  const settings = { ...DEFAULT_SETTINGS, ...current, ...(nextSettings || {}) };
+  if ((settings.modelProvider || DEFAULT_SETTINGS.modelProvider) === "openai-compatible") {
+    return checkOpenAICompatibleHealth(settings);
+  }
+  return checkOllamaHealth();
+}
+
 async function checkOllamaHealth() {
   const startedAt = Date.now();
   const response = await fetch(OLLAMA_TAGS_URL, { method: "GET" });
@@ -201,6 +298,31 @@ async function checkOllamaHealth() {
     : [];
   return {
     available: true,
+    provider: "ollama",
+    checkedAt: new Date().toISOString(),
+    latencyMs: Date.now() - startedAt,
+    models
+  };
+}
+
+async function checkOpenAICompatibleHealth(settings) {
+  const startedAt = Date.now();
+  const baseUrl = normalizeLocalOpenAIBaseUrl(settings.openaiBaseUrl);
+  const response = await fetch(`${baseUrl}/models`, {
+    method: "GET",
+    headers: buildOpenAIHeaders(settings)
+  });
+  if (!response.ok) {
+    throw new Error(`OpenAI-compatible provider returned HTTP ${response.status}.`);
+  }
+
+  const data = await response.json();
+  const models = Array.isArray(data.data)
+    ? data.data.map((model) => model.id).filter(Boolean).slice(0, 12)
+    : [];
+  return {
+    available: true,
+    provider: "openai-compatible",
     checkedAt: new Date().toISOString(),
     latencyMs: Date.now() - startedAt,
     models
@@ -423,6 +545,11 @@ async function updateSettings(nextSettings = {}) {
   const settings = {
     ...current,
     ...nextSettings,
+    modelProvider: normalizeProvider(nextSettings.modelProvider || current.modelProvider),
+    openaiBaseUrl: normalizeOpenAIBaseUrlSetting(
+      nextSettings.openaiBaseUrl ?? current.openaiBaseUrl
+    ),
+    openaiApiKey: String(nextSettings.openaiApiKey ?? current.openaiApiKey ?? "").trim(),
     toxicityThreshold: clampNumber(nextSettings.toxicityThreshold, 0, 1, current.toxicityThreshold),
     retentionDays: Math.round(clampNumber(nextSettings.retentionDays, 1, 365, current.retentionDays))
   };
@@ -476,9 +603,11 @@ function updateDailyRollups(dailyRollups, result, settings) {
     totalPropagandaRisk: 0,
     sources: {
       ollama: 0,
+      openaiCompatible: 0,
       heuristic: 0
     }
   };
+  const existingSources = existing.sources || {};
   const toxicityThreshold = settings.toxicityThreshold ?? DEFAULT_SETTINGS.toxicityThreshold;
 
   return {
@@ -494,8 +623,11 @@ function updateDailyRollups(dailyRollups, result, settings) {
       totalInformationDensity: existing.totalInformationDensity + result.scores.informationDensity,
       totalPropagandaRisk: existing.totalPropagandaRisk + result.scores.propagandaRisk,
       sources: {
-        ollama: existing.sources.ollama + (result.source === "ollama" ? 1 : 0),
-        heuristic: existing.sources.heuristic + (result.source === "heuristic" ? 1 : 0)
+        ollama: (existingSources.ollama || 0) + (result.source === "ollama" ? 1 : 0),
+        openaiCompatible:
+          (existingSources.openaiCompatible || 0) +
+          (result.source === "openai-compatible" ? 1 : 0),
+        heuristic: (existingSources.heuristic || 0) + (result.source === "heuristic" ? 1 : 0)
       }
     }
   };
@@ -590,6 +722,36 @@ function safeJsonParse(value) {
       return null;
     }
   }
+}
+
+function buildOpenAIHeaders(settings) {
+  const headers = { "Content-Type": "application/json" };
+  const apiKey = String(settings.openaiApiKey || "").trim();
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+  return headers;
+}
+
+function normalizeProvider(provider) {
+  return provider === "openai-compatible" ? "openai-compatible" : "ollama";
+}
+
+function normalizeOpenAIBaseUrlSetting(value) {
+  try {
+    return normalizeLocalOpenAIBaseUrl(value);
+  } catch {
+    return DEFAULT_SETTINGS.openaiBaseUrl;
+  }
+}
+
+function normalizeLocalOpenAIBaseUrl(value) {
+  const url = new URL(String(value || DEFAULT_SETTINGS.openaiBaseUrl));
+  const isLocalhost = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  if (!isLocalhost || !["http:", "https:"].includes(url.protocol)) {
+    throw new Error("OpenAI-compatible base URL must point to localhost or 127.0.0.1.");
+  }
+  return url.href.replace(/\/+$/, "");
 }
 
 function normalizeText(text) {

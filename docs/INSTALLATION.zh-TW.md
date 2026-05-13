@@ -60,7 +60,7 @@ http://localhost:11434
 
 ## LM Studio 或 OpenAI-Compatible 服務
 
-目前 MVP 的直接整合只支援 Ollama。Extension 會呼叫：
+PCFA 可以使用 Ollama 或本機 OpenAI-compatible server。Ollama 會呼叫：
 
 ```text
 http://localhost:11434/api/generate
@@ -85,15 +85,15 @@ lms server start
 curl http://localhost:1234/v1/models
 ```
 
-若之後實作 OpenAI-compatible provider branch，設定會需要：
+在 side panel 使用這些設定：
 
 - Provider：`openai-compatible`
 - Base URL：`http://localhost:1234/v1`
 - Model：`/v1/models` 回傳的 model identifier
 - API key：若 server 沒有強制驗證，可使用 `lm-studio` 這類本機 placeholder
-- Chat endpoint：`/v1/chat/completions`，或 Responses endpoint：`/v1/responses`
+- Chat endpoint：`/v1/chat/completions`
 
-在 extension UI/background worker 實作 provider selection 之前，model-backed validation 請使用 Ollama，或啟用 heuristic-only mode。
+PCFA 目前會透過 `/v1/chat/completions` 送出分析，並透過 `/v1/models` 檢查 health。為了維持隱私邊界，OpenAI-compatible base URL 必須指向 localhost 或 `127.0.0.1`。
 
 ## 建議初始設定
 

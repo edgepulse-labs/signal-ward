@@ -1,5 +1,5 @@
 export type FeedPlatform = "x" | "threads";
-export type AnalysisSource = "ollama" | "heuristic";
+export type AnalysisSource = "ollama" | "openai-compatible" | "heuristic";
 
 export interface FeedItem {
   id: string;
@@ -49,6 +49,9 @@ export interface AnalysisResult {
 
 export interface Settings {
   model: string;
+  modelProvider: "ollama" | "openai-compatible";
+  openaiBaseUrl: string;
+  openaiApiKey: string;
   toxicityThreshold: number;
   analysisMode: "ollama" | "heuristic";
   storeRawText: boolean;
@@ -66,6 +69,7 @@ export interface DailyRollup {
   totalPropagandaRisk: number;
   sources: {
     ollama: number;
+    openaiCompatible: number;
     heuristic: number;
   };
 }

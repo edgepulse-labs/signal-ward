@@ -208,7 +208,8 @@
     const details = document.createElement("details");
     details.className = "pcfa-details";
     const summary = document.createElement("summary");
-    summary.textContent = result.source === "ollama" ? "Local model explanation" : "Heuristic explanation";
+    summary.textContent =
+      result.source === "heuristic" ? "Heuristic explanation" : "Local model explanation";
     const list = document.createElement("ul");
 
     for (const explanation of result.explanations || []) {

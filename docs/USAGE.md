@@ -57,7 +57,7 @@ In the side panel, click "Check" in the Ollama status row. PCFA calls the local 
 
 If Ollama fails, analysis automatically falls back to local heuristic scoring unless heuristic-only mode is already enabled.
 
-LM Studio and other OpenAI-compatible servers are not directly selectable in the current MVP UI. They usually expose a base URL such as `http://localhost:1234/v1`; provider settings for that API shape still need to be implemented before PCFA can use them for feed analysis.
+LM Studio and other OpenAI-compatible local servers are selectable from the Model provider control. Use a local base URL such as `http://localhost:1234/v1`; remote provider URLs are rejected to preserve the local-first privacy boundary.
 
 ## Clear Local Data
 

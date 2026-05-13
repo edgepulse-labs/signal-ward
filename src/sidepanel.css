@@ -107,6 +107,8 @@ label {
 }
 
 input[type="number"],
+input[type="password"],
+input[type="url"],
 input[type="text"] {
   width: 100%;
   min-height: 34px;
@@ -114,6 +116,20 @@ input[type="text"] {
   border: 1px solid #cbd4cf;
   border-radius: 6px;
   font: inherit;
+}
+
+select {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid #cbd4cf;
+  border-radius: 6px;
+  background: #ffffff;
+  font: inherit;
+}
+
+.provider-openai[hidden] {
+  display: none;
 }
 
 input[type="range"] {

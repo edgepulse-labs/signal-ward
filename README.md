@@ -11,7 +11,7 @@ This repository currently contains a dependency-free Chrome Manifest V3 prototyp
 Implemented:
 
 - visible post extraction for X and Threads,
-- local analysis through Ollama at `http://localhost:11434`,
+- local analysis through Ollama or a local OpenAI-compatible server,
 - local heuristic fallback when Ollama is unavailable,
 - toxicity, anger, information-density, propaganda-risk, bot-signal, and coordination-risk estimates,
 - reversible high-toxicity collapsing,
@@ -52,7 +52,7 @@ npm run build
 6. Open X or Threads and browse normally.
 7. Open the PCFA side panel from the extension toolbar.
 
-## Optional Ollama Setup
+## Optional Local Model Setup
 
 PCFA defaults to the Ollama model name `llama3.2`.
 
@@ -62,6 +62,8 @@ ollama pull llama3.2
 ```
 
 If Ollama is unavailable, PCFA falls back to its built-in local heuristic scorer.
+
+For LM Studio or another OpenAI-compatible local server, choose `OpenAI-compatible` in the side panel and set the base URL, for example `http://localhost:1234/v1`.
 
 ## Privacy Boundary
 

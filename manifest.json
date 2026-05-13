@@ -6,8 +6,8 @@
   "description": "Local-first cognitive firewall for visible social feeds.",
   "permissions": ["storage", "sidePanel"],
   "host_permissions": [
-    "http://localhost:11434/*",
-    "http://127.0.0.1:11434/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
     "https://x.com/*",
     "https://twitter.com/*",
     "https://www.threads.net/*",

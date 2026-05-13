@@ -7,7 +7,7 @@ This repository now contains a dependency-free Chrome Manifest V3 extension prot
 Implemented:
 
 - visible post extraction for X and Threads,
-- local analysis through Ollama at `http://localhost:11434`,
+- local analysis through Ollama or a local OpenAI-compatible server,
 - heuristic fallback when Ollama is unavailable,
 - local score persistence through `chrome.storage.local`,
 - local daily rollups and retention settings,

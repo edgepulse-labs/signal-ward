@@ -60,14 +60,14 @@ Open the PCFA side panel and click "Check" in the Ollama status row to verify th
 
 ## LM Studio or OpenAI-Compatible Servers
 
-Current MVP direct integration is Ollama-only. The extension calls:
+PCFA can use either Ollama or a local OpenAI-compatible server. Ollama calls:
 
 ```text
 http://localhost:11434/api/generate
 http://localhost:11434/api/tags
 ```
 
-LM Studio and many local inference servers expose OpenAI-compatible endpoints instead, commonly under a base URL like:
+LM Studio and many local inference servers expose OpenAI-compatible endpoints, commonly under a base URL like:
 
 ```text
 http://localhost:1234/v1
@@ -85,15 +85,15 @@ Then verify the OpenAI-compatible model list:
 curl http://localhost:1234/v1/models
 ```
 
-For an OpenAI-compatible provider branch, the settings would need:
+In the side panel, use these settings:
 
 - Provider: `openai-compatible`
 - Base URL: `http://localhost:1234/v1`
 - Model: the model identifier reported by `/v1/models`
 - API key: a local placeholder such as `lm-studio`, unless your server enforces a real key
-- Chat endpoint: `/v1/chat/completions` or Responses endpoint: `/v1/responses`
+- Chat endpoint: `/v1/chat/completions`
 
-Until provider selection is implemented in the extension UI/background worker, use Ollama for model-backed validation or enable heuristic-only mode.
+PCFA currently sends analysis through `/v1/chat/completions` and checks health through `/v1/models`. For privacy, OpenAI-compatible base URLs must point to localhost or `127.0.0.1`.
 
 ## Recommended First Settings
 

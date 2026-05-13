@@ -11,7 +11,7 @@ PCFA 不是審查工具，也不判定政治真相。它是一個注意力保護
 已實作：
 
 - X 與 Threads 的可見貼文擷取，
-- 透過 `http://localhost:11434` 連接 Ollama 進行本機分析，
+- 透過 Ollama 或本機 OpenAI-compatible server 進行本機分析，
 - Ollama 不可用時的本機 heuristic fallback，
 - 毒性、憤怒、資訊密度、宣傳風險、bot signal 與 coordination risk 估計，
 - 可逆的高毒性內容摺疊，
@@ -52,7 +52,7 @@ npm run build
 6. 開啟 X 或 Threads，照常瀏覽。
 7. 從 extension toolbar 開啟 PCFA side panel。
 
-## 可選 Ollama 設定
+## 可選本機模型設定
 
 PCFA 預設使用 Ollama model name `llama3.2`。
 
@@ -62,6 +62,8 @@ ollama pull llama3.2
 ```
 
 如果 Ollama 不可用，PCFA 會降級使用內建的本機 heuristic scorer。
+
+若使用 LM Studio 或其他 OpenAI-compatible local server，請在 side panel 選擇 `OpenAI-compatible`，並設定 base URL，例如 `http://localhost:1234/v1`。
 
 ## 隱私邊界
 

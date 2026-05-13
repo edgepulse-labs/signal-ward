@@ -4,7 +4,10 @@ const elements = {
   highToxicityPosts: document.querySelector("#highToxicityPosts"),
   averageToxicity: document.querySelector("#averageToxicity"),
   averageInfo: document.querySelector("#averageInfo"),
+  modelProvider: document.querySelector("#modelProvider"),
   model: document.querySelector("#model"),
+  openaiBaseUrl: document.querySelector("#openaiBaseUrl"),
+  openaiApiKey: document.querySelector("#openaiApiKey"),
   toxicityThreshold: document.querySelector("#toxicityThreshold"),
   thresholdValue: document.querySelector("#thresholdValue"),
   retentionDays: document.querySelector("#retentionDays"),
@@ -28,6 +31,7 @@ elements.toxicityThreshold.addEventListener("input", () => {
 elements.saveSettings.addEventListener("click", saveSettings);
 elements.clearData.addEventListener("click", clearData);
 elements.checkOllama.addEventListener("click", checkOllama);
+elements.modelProvider.addEventListener("change", syncProviderControls);
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "local" && (changes.metrics || changes.scores || changes.settings)) {
@@ -51,17 +55,23 @@ function render(state) {
   const scores = Object.values(state.scores || {});
   const analyzed = metrics.postsAnalyzed || 0;
 
-  elements.runtimeStatus.textContent = settings.analysisMode === "heuristic" ? "Heuristic" : "Ollama";
+  const provider = settings.modelProvider || "ollama";
+  elements.runtimeStatus.textContent =
+    settings.analysisMode === "heuristic" ? "Heuristic" : providerLabel(provider);
   elements.postsAnalyzed.textContent = String(analyzed);
   elements.highToxicityPosts.textContent = String(metrics.highToxicityPosts || 0);
   elements.averageToxicity.textContent = formatPercent(analyzed ? metrics.totalToxicity / analyzed : 0);
   elements.averageInfo.textContent = formatPercent(analyzed ? metrics.totalInformationDensity / analyzed : 0);
-  elements.model.value = settings.model || "llama3.2";
+  elements.modelProvider.value = provider;
+  elements.model.value = settings.model || (provider === "openai-compatible" ? "" : "llama3.2");
+  elements.openaiBaseUrl.value = settings.openaiBaseUrl || "http://localhost:1234/v1";
+  elements.openaiApiKey.value = settings.openaiApiKey || "lm-studio";
   elements.toxicityThreshold.value = settings.toxicityThreshold ?? 0.72;
   elements.thresholdValue.textContent = formatPercent(Number(elements.toxicityThreshold.value));
   elements.retentionDays.value = settings.retentionDays ?? 30;
   elements.analysisMode.checked = settings.analysisMode === "heuristic";
   elements.storeRawText.checked = Boolean(settings.storeRawText);
+  syncProviderControls();
 
   renderRecent(scores);
   renderCategories(scores);
@@ -128,7 +138,7 @@ function renderPrivacyStatus(state, scores) {
   const settings = state.settings || {};
   const hasRawText = scores.some((score) => typeof score.item?.text === "string");
   const rows = [
-    ["Analysis endpoint", settings.analysisMode === "heuristic" ? "Local heuristic only" : "Local Ollama / heuristic fallback"],
+    ["Analysis endpoint", analysisEndpointLabel(settings)],
     ["Raw visible text", settings.storeRawText || hasRawText ? "Stored locally" : "Not stored by default"],
     ["Retention", `${settings.retentionDays || 30} days in local extension storage`],
     ["Cloud services", "No extension cloud calls configured"],
@@ -165,7 +175,12 @@ function renderDailyRollup(dailyRollups) {
     ["High toxicity", String(rollup.highToxicityPosts || 0)],
     ["Avg emotion", formatPercent(averageEmotion(rollup))],
     ["Avg propaganda", formatPercent(analyzed ? rollup.totalPropagandaRisk / analyzed : 0)],
-    ["Sources", `${rollup.sources?.ollama || 0} Ollama / ${rollup.sources?.heuristic || 0} heuristic`]
+    [
+      "Sources",
+      `${rollup.sources?.ollama || 0} Ollama / ${
+        rollup.sources?.openaiCompatible || 0
+      } OpenAI-compatible / ${rollup.sources?.heuristic || 0} heuristic`
+    ]
   ];
 
   elements.dailyRollup.innerHTML = "";
@@ -179,17 +194,24 @@ function renderDailyRollup(dailyRollups) {
 }
 
 function checkOllama() {
-  elements.ollamaStatus.textContent = "Checking Ollama...";
-  elements.ollamaDetail.textContent = "Contacting http://localhost:11434.";
-  chrome.runtime.sendMessage({ type: "PCFA_CHECK_OLLAMA" }, (response) => {
+  const settings = readSettingsForm();
+  const provider = settings.modelProvider || "ollama";
+  elements.ollamaStatus.textContent = `Checking ${providerLabel(provider)}...`;
+  elements.ollamaDetail.textContent =
+    provider === "openai-compatible"
+      ? `Contacting ${settings.openaiBaseUrl}.`
+      : "Contacting http://localhost:11434.";
+  chrome.runtime.sendMessage({ type: "PCFA_CHECK_OLLAMA", settings }, (response) => {
     if (!response?.ok || !response.health?.available) {
-      elements.ollamaStatus.textContent = "Ollama unavailable";
+      elements.ollamaStatus.textContent = `${providerLabel(provider)} unavailable`;
       elements.ollamaDetail.textContent = response?.error || "Local health check failed.";
       return;
     }
 
     const models = response.health.models || [];
-    elements.ollamaStatus.textContent = `Ollama available (${response.health.latencyMs} ms)`;
+    elements.ollamaStatus.textContent = `${providerLabel(response.health.provider)} available (${
+      response.health.latencyMs
+    } ms)`;
     elements.ollamaDetail.textContent = models.length
       ? `Models: ${models.join(", ")}`
       : "No local models reported by Ollama.";
@@ -197,15 +219,22 @@ function checkOllama() {
 }
 
 function saveSettings() {
+  const settings = readSettingsForm();
+  chrome.runtime.sendMessage({ type: "PCFA_UPDATE_SETTINGS", settings }, refreshState);
+}
+
+function readSettingsForm() {
   const settings = {
+    modelProvider: elements.modelProvider.value,
     model: elements.model.value.trim() || "llama3.2",
+    openaiBaseUrl: elements.openaiBaseUrl.value.trim() || "http://localhost:1234/v1",
+    openaiApiKey: elements.openaiApiKey.value.trim(),
     toxicityThreshold: Number(elements.toxicityThreshold.value),
     retentionDays: Number(elements.retentionDays.value),
     analysisMode: elements.analysisMode.checked ? "heuristic" : "ollama",
     storeRawText: elements.storeRawText.checked
   };
-
-  chrome.runtime.sendMessage({ type: "PCFA_UPDATE_SETTINGS", settings }, refreshState);
+  return settings;
 }
 
 function clearData() {
@@ -231,4 +260,28 @@ function averageEmotion(rollup) {
   }
   const total = (rollup.totalAnger || 0) + (rollup.totalFear || 0);
   return Math.round((total / (analyzed * 2)) * 100) / 100;
+}
+
+function syncProviderControls() {
+  const isOpenAICompatible = elements.modelProvider.value === "openai-compatible";
+  for (const element of document.querySelectorAll(".provider-openai")) {
+    element.hidden = !isOpenAICompatible;
+  }
+  elements.ollamaDetail.textContent = isOpenAICompatible
+    ? "Use the check button to verify the local OpenAI-compatible endpoint."
+    : "Use the check button to verify localhost.";
+}
+
+function providerLabel(provider) {
+  return provider === "openai-compatible" ? "OpenAI-compatible" : "Ollama";
+}
+
+function analysisEndpointLabel(settings) {
+  if (settings.analysisMode === "heuristic") {
+    return "Local heuristic only";
+  }
+  if (settings.modelProvider === "openai-compatible") {
+    return `Local OpenAI-compatible (${settings.openaiBaseUrl || "http://localhost:1234/v1"})`;
+  }
+  return "Local Ollama / heuristic fallback";
 }

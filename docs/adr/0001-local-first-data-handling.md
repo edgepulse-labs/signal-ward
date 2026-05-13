@@ -13,9 +13,9 @@ PCFA analyzes social feed content that is visible in the user's browser. The MVP
 - The extension analyzes only DOM content that is currently visible to the user.
 - Raw visible text is not stored by default.
 - Scores, explanations, settings, and session metrics are stored in `chrome.storage.local`.
-- Ollama calls are restricted to `localhost` / `127.0.0.1`.
-- If Ollama is unavailable or returns malformed output after one retry, analysis falls back to local heuristic scoring.
-- The side panel must show whether heuristic mode or Ollama produced local scores and expose local data clearing.
+- Ollama and OpenAI-compatible provider calls are restricted to `localhost` / `127.0.0.1`.
+- If the selected local model provider is unavailable or returns malformed output after one retry, analysis falls back to local heuristic scoring.
+- The side panel must show whether heuristic mode, Ollama, or an OpenAI-compatible local provider produced scores and expose local data clearing.
 
 ## Consequences
 

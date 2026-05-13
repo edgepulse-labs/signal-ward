@@ -104,17 +104,15 @@ Verify the server:
 curl http://localhost:1234/v1/models
 ```
 
-Important MVP limitation: this extension does not yet send analysis requests to OpenAI-compatible endpoints. It currently sends model-backed requests only to Ollama's `/api/generate` endpoint and checks health through Ollama's `/api/tags` endpoint.
-
-Use this section to prepare and record LM Studio readiness, but do not mark Ollama-backed validation complete from LM Studio alone unless the extension has first gained an OpenAI-compatible provider setting.
-
-When that provider exists, validate these settings:
+In the PCFA side panel, validate these settings:
 
 - Provider: `openai-compatible`
 - Base URL: `http://localhost:1234/v1`, or your local provider URL
 - Model: the model identifier from `/v1/models`
 - API key: local placeholder such as `lm-studio`, unless the server requires a real key
-- Endpoint shape: `/v1/chat/completions` or `/v1/responses`
+- Endpoint shape: `/v1/chat/completions`
+
+PCFA currently uses `/v1/chat/completions` for analysis and `/v1/models` for health checks. For privacy, base URLs must point to localhost or `127.0.0.1`; remote OpenAI-compatible services are rejected by the extension.
 
 ## X Validation
 

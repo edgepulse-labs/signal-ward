@@ -120,7 +120,7 @@ Acceptance:
 ### Milestone 2: Local Analysis Runtime Integration
 
 - [x] Add Ollama HTTP client
-- [ ] Add OpenAI-compatible local provider support
+- [x] Add OpenAI-compatible local provider support
 - [x] Add model setting with default `llama3.2`
 - [x] Add structured JSON prompt
 - [x] Validate and normalize model scores
