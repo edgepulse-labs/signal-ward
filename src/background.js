@@ -2,7 +2,8 @@ const DEFAULT_SETTINGS = {
   model: "llama3.2",
   toxicityThreshold: 0.72,
   analysisMode: "ollama",
-  storeRawText: false
+  storeRawText: false,
+  retentionDays: 30
 };
 
 const DEFAULT_METRICS = {
@@ -15,19 +16,30 @@ const DEFAULT_METRICS = {
   lastAnalyzedAt: null
 };
 
+const DEFAULT_DAILY_ROLLUPS = {};
 const OLLAMA_GENERATE_URL = "http://localhost:11434/api/generate";
 const OLLAMA_TAGS_URL = "http://localhost:11434/api/tags";
 
 chrome.runtime.onInstalled.addListener(async () => {
-  const existing = await chrome.storage.local.get(["settings", "metrics", "scores"]);
+  const existing = await chrome.storage.local.get([
+    "settings",
+    "metrics",
+    "scores",
+    "dailyRollups"
+  ]);
   if (!existing.settings) {
     await chrome.storage.local.set({ settings: DEFAULT_SETTINGS });
+  } else {
+    await chrome.storage.local.set({ settings: { ...DEFAULT_SETTINGS, ...existing.settings } });
   }
   if (!existing.metrics) {
     await chrome.storage.local.set({ metrics: DEFAULT_METRICS });
   }
   if (!existing.scores) {
     await chrome.storage.local.set({ scores: {} });
+  }
+  if (!existing.dailyRollups) {
+    await chrome.storage.local.set({ dailyRollups: DEFAULT_DAILY_ROLLUPS });
   }
   if (chrome.sidePanel?.setPanelBehavior) {
     await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
@@ -110,7 +122,13 @@ async function analyzeAndStore(item) {
 
   scores[item.id] = result;
   const metrics = updateMetrics(await readMetrics(), result, settings);
-  await chrome.storage.local.set({ scores, metrics });
+  const dailyRollups = updateDailyRollups(await readDailyRollups(), result, settings);
+  const pruned = applyRetention(scores, dailyRollups, settings);
+  await chrome.storage.local.set({
+    scores: pruned.scores,
+    metrics,
+    dailyRollups: pruned.dailyRollups
+  });
   return { ...result, cached: false, settings };
 }
 
@@ -390,32 +408,44 @@ function buildHeuristicExplanations(scores) {
 }
 
 async function getState() {
-  const state = await chrome.storage.local.get(["settings", "metrics", "scores"]);
+  const state = await chrome.storage.local.get(["settings", "metrics", "scores", "dailyRollups"]);
   return {
-    settings: state.settings || DEFAULT_SETTINGS,
+    settings: { ...DEFAULT_SETTINGS, ...(state.settings || {}) },
     metrics: state.metrics || DEFAULT_METRICS,
-    scores: state.scores || {}
+    scores: state.scores || {},
+    dailyRollups: state.dailyRollups || DEFAULT_DAILY_ROLLUPS
   };
 }
 
 async function updateSettings(nextSettings = {}) {
-  const current = (await chrome.storage.local.get("settings")).settings || DEFAULT_SETTINGS;
+  const stored = (await chrome.storage.local.get("settings")).settings || {};
+  const current = { ...DEFAULT_SETTINGS, ...stored };
   const settings = {
     ...current,
     ...nextSettings,
-    toxicityThreshold: clampNumber(nextSettings.toxicityThreshold, 0, 1, current.toxicityThreshold)
+    toxicityThreshold: clampNumber(nextSettings.toxicityThreshold, 0, 1, current.toxicityThreshold),
+    retentionDays: Math.round(clampNumber(nextSettings.retentionDays, 1, 365, current.retentionDays))
   };
   await chrome.storage.local.set({ settings });
   return settings;
 }
 
 async function clearData() {
-  await chrome.storage.local.set({ metrics: DEFAULT_METRICS, scores: {} });
+  await chrome.storage.local.set({
+    metrics: DEFAULT_METRICS,
+    scores: {},
+    dailyRollups: DEFAULT_DAILY_ROLLUPS
+  });
 }
 
 async function readMetrics() {
   const { metrics } = await chrome.storage.local.get("metrics");
   return metrics || DEFAULT_METRICS;
+}
+
+async function readDailyRollups() {
+  const { dailyRollups } = await chrome.storage.local.get("dailyRollups");
+  return dailyRollups || DEFAULT_DAILY_ROLLUPS;
 }
 
 function updateMetrics(metrics, result, settings) {
@@ -430,6 +460,70 @@ function updateMetrics(metrics, result, settings) {
     totalToxicity: metrics.totalToxicity + result.scores.toxicity,
     totalAnger: metrics.totalAnger + result.scores.anger,
     lastAnalyzedAt: result.analyzedAt
+  };
+}
+
+function updateDailyRollups(dailyRollups, result, settings) {
+  const day = result.analyzedAt.slice(0, 10);
+  const existing = dailyRollups[day] || {
+    date: day,
+    postsAnalyzed: 0,
+    highToxicityPosts: 0,
+    totalToxicity: 0,
+    totalAnger: 0,
+    totalFear: 0,
+    totalInformationDensity: 0,
+    totalPropagandaRisk: 0,
+    sources: {
+      ollama: 0,
+      heuristic: 0
+    }
+  };
+  const toxicityThreshold = settings.toxicityThreshold ?? DEFAULT_SETTINGS.toxicityThreshold;
+
+  return {
+    ...dailyRollups,
+    [day]: {
+      ...existing,
+      postsAnalyzed: existing.postsAnalyzed + 1,
+      highToxicityPosts:
+        existing.highToxicityPosts + (result.scores.toxicity >= toxicityThreshold ? 1 : 0),
+      totalToxicity: existing.totalToxicity + result.scores.toxicity,
+      totalAnger: existing.totalAnger + result.scores.anger,
+      totalFear: existing.totalFear + result.scores.fear,
+      totalInformationDensity: existing.totalInformationDensity + result.scores.informationDensity,
+      totalPropagandaRisk: existing.totalPropagandaRisk + result.scores.propagandaRisk,
+      sources: {
+        ollama: existing.sources.ollama + (result.source === "ollama" ? 1 : 0),
+        heuristic: existing.sources.heuristic + (result.source === "heuristic" ? 1 : 0)
+      }
+    }
+  };
+}
+
+function applyRetention(scores, dailyRollups, settings) {
+  const retentionDays = settings.retentionDays ?? DEFAULT_SETTINGS.retentionDays;
+  const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  const keptScores = {};
+  const keptRollups = {};
+
+  for (const [id, score] of Object.entries(scores)) {
+    const analyzedTime = Date.parse(score.analyzedAt || "");
+    if (!Number.isFinite(analyzedTime) || analyzedTime >= cutoff) {
+      keptScores[id] = score;
+    }
+  }
+
+  for (const [day, rollup] of Object.entries(dailyRollups)) {
+    const dayTime = Date.parse(`${day}T00:00:00.000Z`);
+    if (!Number.isFinite(dayTime) || dayTime >= cutoff) {
+      keptRollups[day] = rollup;
+    }
+  }
+
+  return {
+    scores: keptScores,
+    dailyRollups: keptRollups
   };
 }
 

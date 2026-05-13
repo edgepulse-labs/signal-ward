@@ -7,6 +7,7 @@ const elements = {
   model: document.querySelector("#model"),
   toxicityThreshold: document.querySelector("#toxicityThreshold"),
   thresholdValue: document.querySelector("#thresholdValue"),
+  retentionDays: document.querySelector("#retentionDays"),
   analysisMode: document.querySelector("#analysisMode"),
   storeRawText: document.querySelector("#storeRawText"),
   checkOllama: document.querySelector("#checkOllama"),
@@ -16,6 +17,7 @@ const elements = {
   clearData: document.querySelector("#clearData"),
   recentList: document.querySelector("#recentList"),
   categoryDetails: document.querySelector("#categoryDetails"),
+  dailyRollup: document.querySelector("#dailyRollup"),
   privacyStatus: document.querySelector("#privacyStatus")
 };
 
@@ -57,11 +59,13 @@ function render(state) {
   elements.model.value = settings.model || "llama3.2";
   elements.toxicityThreshold.value = settings.toxicityThreshold ?? 0.72;
   elements.thresholdValue.textContent = formatPercent(Number(elements.toxicityThreshold.value));
+  elements.retentionDays.value = settings.retentionDays ?? 30;
   elements.analysisMode.checked = settings.analysisMode === "heuristic";
   elements.storeRawText.checked = Boolean(settings.storeRawText);
 
   renderRecent(scores);
   renderCategories(scores);
+  renderDailyRollup(state.dailyRollups || {});
   renderPrivacyStatus(state, scores);
 }
 
@@ -126,6 +130,7 @@ function renderPrivacyStatus(state, scores) {
   const rows = [
     ["Analysis endpoint", settings.analysisMode === "heuristic" ? "Local heuristic only" : "Local Ollama / heuristic fallback"],
     ["Raw visible text", settings.storeRawText || hasRawText ? "Stored locally" : "Not stored by default"],
+    ["Retention", `${settings.retentionDays || 30} days in local extension storage`],
     ["Cloud services", "No extension cloud calls configured"],
     ["Data clearing", "Available from this panel"]
   ];
@@ -137,6 +142,39 @@ function renderPrivacyStatus(state, scores) {
     term.textContent = label;
     detail.textContent = value;
     elements.privacyStatus.append(term, detail);
+  }
+}
+
+function renderDailyRollup(dailyRollups) {
+  const today = new Date().toISOString().slice(0, 10);
+  const rollup = dailyRollups[today] || {
+    postsAnalyzed: 0,
+    highToxicityPosts: 0,
+    totalAnger: 0,
+    totalFear: 0,
+    totalPropagandaRisk: 0,
+    sources: {
+      ollama: 0,
+      heuristic: 0
+    }
+  };
+  const analyzed = rollup.postsAnalyzed || 0;
+  const rows = [
+    ["Date", today],
+    ["Analyzed", String(analyzed)],
+    ["High toxicity", String(rollup.highToxicityPosts || 0)],
+    ["Avg emotion", formatPercent(averageEmotion(rollup))],
+    ["Avg propaganda", formatPercent(analyzed ? rollup.totalPropagandaRisk / analyzed : 0)],
+    ["Sources", `${rollup.sources?.ollama || 0} Ollama / ${rollup.sources?.heuristic || 0} heuristic`]
+  ];
+
+  elements.dailyRollup.innerHTML = "";
+  for (const [label, value] of rows) {
+    const term = document.createElement("dt");
+    const detail = document.createElement("dd");
+    term.textContent = label;
+    detail.textContent = value;
+    elements.dailyRollup.append(term, detail);
   }
 }
 
@@ -162,6 +200,7 @@ function saveSettings() {
   const settings = {
     model: elements.model.value.trim() || "llama3.2",
     toxicityThreshold: Number(elements.toxicityThreshold.value),
+    retentionDays: Number(elements.retentionDays.value),
     analysisMode: elements.analysisMode.checked ? "heuristic" : "ollama",
     storeRawText: elements.storeRawText.checked
   };
@@ -183,4 +222,13 @@ function averageScore(scores, key) {
   }
   const total = scores.reduce((sum, score) => sum + Number(score.scores?.[key] || 0), 0);
   return Math.round((total / scores.length) * 100) / 100;
+}
+
+function averageEmotion(rollup) {
+  const analyzed = rollup.postsAnalyzed || 0;
+  if (!analyzed) {
+    return 0;
+  }
+  const total = (rollup.totalAnger || 0) + (rollup.totalFear || 0);
+  return Math.round((total / (analyzed * 2)) * 100) / 100;
 }

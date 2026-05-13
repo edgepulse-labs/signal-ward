@@ -83,3 +83,5 @@ http://localhost:11434
 如果沒有任何貼文被標註，請重新整理 X 或 Threads 分頁，並確認網址符合 manifest 中設定的 host permissions。
 
 如果 Ollama 顯示不可用，請確認 `ollama serve` 正在執行，且 `http://localhost:11434/api/tags` 可在本機回應。
+
+Live X / Threads 與 Ollama 驗證準備請見[真實環境驗證準備](REAL_WORLD_VALIDATION.zh-TW.md)。

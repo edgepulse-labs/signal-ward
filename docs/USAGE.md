@@ -43,8 +43,13 @@ Available settings:
 - Collapse threshold: score level where posts are collapsed.
 - Use heuristic mode only: disables Ollama calls and uses local keyword heuristics.
 - Store raw visible text locally: stores raw visible post text in local Chrome extension storage.
+- Retention days: prunes locally stored scores and daily rollups after the selected number of days.
 
 Click "Save settings" after changing controls.
+
+## Read Daily Rollups
+
+The Daily Rollup panel summarizes today's local activity, including analyzed item count, high-toxicity count, average emotional exposure estimate, average propaganda-risk estimate, and the split between Ollama and heuristic scoring.
 
 ## Check Ollama
 

@@ -29,7 +29,9 @@ if (manifest.manifest_version !== 3) {
 const jsFiles = [
   "src/background.js",
   "src/content.js",
-  "src/sidepanel.js"
+  "src/sidepanel.js",
+  "scripts/validate-extension.js",
+  "scripts/validate-fixtures.js"
 ];
 
 const formattedFiles = [
@@ -37,6 +39,9 @@ const formattedFiles = [
   "manifest.json",
   "package.json",
   "tsconfig.json",
+  "fixtures/feed-extraction.json",
+  "scripts/validate-extension.js",
+  "scripts/validate-fixtures.js",
   "src/background.js",
   "src/content.css",
   "src/content.js",
@@ -48,6 +53,8 @@ const formattedFiles = [
   "docs/EXECUTION_PLAN.zh-TW.md",
   "docs/INSTALLATION.md",
   "docs/INSTALLATION.zh-TW.md",
+  "docs/REAL_WORLD_VALIDATION.md",
+  "docs/REAL_WORLD_VALIDATION.zh-TW.md",
   "docs/USAGE.md",
   "docs/USAGE.zh-TW.md",
   "docs/adr/0001-local-first-data-handling.md"
@@ -80,4 +87,12 @@ for (const file of formattedFiles) {
   });
 }
 
-console.log("Extension manifest, JavaScript syntax, and formatting checks passed.");
+const fixtureResult = spawnSync(process.execPath, [path.join(root, "scripts/validate-fixtures.js")], {
+  encoding: "utf8"
+});
+if (fixtureResult.status !== 0) {
+  process.stderr.write(fixtureResult.stderr || fixtureResult.stdout);
+  throw new Error("Fixture validation failed.");
+}
+
+console.log("Extension manifest, JavaScript syntax, formatting, and fixtures passed.");

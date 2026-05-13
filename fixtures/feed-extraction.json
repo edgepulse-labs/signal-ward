@@ -1,0 +1,28 @@
+[
+  {
+    "name": "x-basic-visible-tweet",
+    "platform": "x",
+    "host": "x.com",
+    "selector": "article[data-testid=\"tweet\"]",
+    "html": "<article data-testid=\"tweet\"><div>Example Author @example</div><div data-testid=\"tweetText\">A sourced note with data and a link https://example.test/report</div><a href=\"https://x.com/example/status/123\">permalink</a><button aria-label=\"12 replies\"></button></article>",
+    "expected": {
+      "textIncludes": "A sourced note with data",
+      "authorHandle": "@example",
+      "urlIncludes": "/status/123",
+      "minimumExtractionConfidence": 0.85
+    }
+  },
+  {
+    "name": "threads-basic-visible-post",
+    "platform": "threads",
+    "host": "www.threads.net",
+    "selector": "div[role=\"article\"]",
+    "html": "<div role=\"article\"><div>Example Person @example</div><p>Here is a visible Threads post with enough text to be analyzed locally.</p><a href=\"https://www.threads.net/@example/post/abc\">post</a><button aria-label=\"Like\"></button></div>",
+    "expected": {
+      "textIncludes": "visible Threads post",
+      "authorHandle": "@example",
+      "urlIncludes": "/post/abc",
+      "minimumExtractionConfidence": 0.85
+    }
+  }
+]

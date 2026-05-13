@@ -52,4 +52,20 @@ export interface Settings {
   toxicityThreshold: number;
   analysisMode: "ollama" | "heuristic";
   storeRawText: boolean;
+  retentionDays: number;
+}
+
+export interface DailyRollup {
+  date: string;
+  postsAnalyzed: number;
+  highToxicityPosts: number;
+  totalToxicity: number;
+  totalAnger: number;
+  totalFear: number;
+  totalInformationDensity: number;
+  totalPropagandaRisk: number;
+  sources: {
+    ollama: number;
+    heuristic: number;
+  };
 }

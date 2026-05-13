@@ -18,6 +18,7 @@ PCFA 不是審查工具，也不判定政治真相。它是一個注意力保護
 - 帶有解釋的內容標註，
 - 側邊面板 metrics 與 settings，
 - 透過 `chrome.storage.local` 本機保存分數，
+- 本機 daily rollups 與 retention settings，
 - 本機資料清除，
 - 預設不儲存原始可見文字。
 
@@ -26,7 +27,7 @@ PCFA 不是審查工具，也不判定政治真相。它是一個注意力保護
 - live site 手動驗證，
 - 校準後的 classifier integration，
 - IndexedDB persistence，
-- daily rollups 與 attention-time analytics，
+- attention-time analytics，
 - 正式測試套件，
 - TypeScript/Vite 遷移決策。
 
@@ -81,6 +82,8 @@ PCFA 依照 local-first 約束設計：
 - [安裝與設定，英文](docs/INSTALLATION.md)
 - [使用指南](docs/USAGE.zh-TW.md)
 - [使用指南，英文](docs/USAGE.md)
+- [真實環境驗證準備](docs/REAL_WORLD_VALIDATION.zh-TW.md)
+- [真實環境驗證準備，英文](docs/REAL_WORLD_VALIDATION.md)
 - [產品需求文件](docs/PRD.md)
 - [產品需求文件，繁體中文](docs/PRD.zh-TW.md)
 - [執行規劃](docs/EXECUTION_PLAN.md)

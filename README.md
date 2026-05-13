@@ -18,6 +18,7 @@ Implemented:
 - content annotations with explanations,
 - side panel metrics and settings,
 - local score persistence through `chrome.storage.local`,
+- local daily rollups and retention settings,
 - local data clearing,
 - raw visible text storage disabled by default.
 
@@ -26,7 +27,7 @@ Not yet complete:
 - manual live-site verification,
 - calibrated classifier integration,
 - IndexedDB persistence,
-- daily rollups and attention-time analytics,
+- attention-time analytics,
 - formal test suite,
 - TypeScript/Vite migration decision.
 
@@ -81,6 +82,8 @@ PCFA is designed around local-first constraints:
 - [Installation and Setup, Traditional Chinese](docs/INSTALLATION.zh-TW.md)
 - [Usage Guide](docs/USAGE.md)
 - [Usage Guide, Traditional Chinese](docs/USAGE.zh-TW.md)
+- [Real-World Validation Prep](docs/REAL_WORLD_VALIDATION.md)
+- [Real-World Validation Prep, Traditional Chinese](docs/REAL_WORLD_VALIDATION.zh-TW.md)
 - [Product Requirements Document](docs/PRD.md)
 - [Product Requirements Document, Traditional Chinese](docs/PRD.zh-TW.md)
 - [Execution Plan](docs/EXECUTION_PLAN.md)

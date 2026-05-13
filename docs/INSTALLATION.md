@@ -83,3 +83,5 @@ If the extension does not appear, run `npm run build` and check Chrome's extensi
 If no posts are annotated, refresh the X or Threads tab and make sure the URL matches one of the configured host permissions.
 
 If Ollama is unavailable, verify that `ollama serve` is running and that `http://localhost:11434/api/tags` responds locally.
+
+For live X / Threads and Ollama verification prep, see [Real-World Validation Prep](REAL_WORLD_VALIDATION.md).

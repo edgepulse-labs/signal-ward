@@ -3,6 +3,7 @@
     platform: detectPlatform(),
     observedIds: new Set(),
     annotatedIds: new Set(),
+    userExpandedIds: new Set(),
     observer: null,
     mutationTimer: null,
     settings: {
@@ -153,7 +154,8 @@
     const box = ensurePanel(node, result.itemId);
     const scores = result.scores;
     const threshold = STATE.settings.toxicityThreshold ?? 0.72;
-    const shouldCollapse = scores.toxicity >= threshold;
+    const shouldCollapse =
+      scores.toxicity >= threshold && !STATE.userExpandedIds.has(result.itemId);
 
     node.dataset.pcfaToxicity = String(scores.toxicity);
     node.dataset.pcfaConfidence = String(result.confidence);
@@ -241,7 +243,11 @@
     control.type = "button";
     control.className = "pcfa-restore";
     control.textContent = "Show original";
-    control.addEventListener("click", () => expandNode(node));
+    control.addEventListener("click", () => {
+      STATE.userExpandedIds.add(result.itemId);
+      node.dataset.pcfaUserExpanded = "true";
+      expandNode(node);
+    });
 
     const notice = document.createElement("div");
     notice.className = "pcfa-collapse-notice";
@@ -261,7 +267,11 @@
   function refreshCollapseState() {
     for (const node of document.querySelectorAll("[data-pcfa-toxicity]")) {
       const toxicity = Number(node.dataset.pcfaToxicity);
-      if (Number.isFinite(toxicity) && toxicity < (STATE.settings.toxicityThreshold ?? 0.72)) {
+      const userExpanded = node.dataset.pcfaUserExpanded === "true";
+      if (
+        userExpanded ||
+        (Number.isFinite(toxicity) && toxicity < (STATE.settings.toxicityThreshold ?? 0.72))
+      ) {
         expandNode(node);
       }
     }

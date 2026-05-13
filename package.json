@@ -7,7 +7,8 @@
   "scripts": {
     "build": "node scripts/validate-extension.js",
     "check": "node scripts/validate-extension.js",
-    "lint": "node scripts/validate-extension.js"
+    "lint": "node scripts/validate-extension.js",
+    "test": "node scripts/validate-fixtures.js"
   },
   "devDependencies": {}
 }

@@ -10,6 +10,7 @@ Implemented:
 - local analysis through Ollama at `http://localhost:11434`,
 - heuristic fallback when Ollama is unavailable,
 - local score persistence through `chrome.storage.local`,
+- local daily rollups and retention settings,
 - content annotations,
 - reversible high-toxicity collapsing,
 - side panel metrics and controls,
@@ -63,5 +64,7 @@ If Ollama is unavailable, the MVP uses the built-in local heuristic scorer.
 
 - [Installation and Setup](INSTALLATION.md)
 - [Usage Guide](USAGE.md)
+- [Real-World Validation Prep](REAL_WORLD_VALIDATION.md)
 - [安裝與設定](INSTALLATION.zh-TW.md)
 - [使用指南](USAGE.zh-TW.md)
+- [真實環境驗證準備](REAL_WORLD_VALIDATION.zh-TW.md)

@@ -2,7 +2,7 @@
 
 ## 文件狀態
 
-- 版本：v0.3 任務追蹤版
+- 版本：v0.4 任務追蹤版
 - 來源：`docs/PRD.md`
 - 範圍：MVP Phase 1
 - 目標平台：X 與 Threads
@@ -106,7 +106,7 @@
 - [x] 對 DOM mutation scan 進行 debounce
 - [x] 忽略 viewport 外 candidates
 - [ ] 以 live X 驗證 selectors
-- [ ] 新增 fixture-based regression examples
+- [x] 新增 fixture-based regression examples
 - [ ] 改善 extraction confidence calibration
 
 驗收：
@@ -150,7 +150,7 @@
 - [x] 將 heuristic explanations 與 local model explanations 分開標示
 - [x] 新增 low-confidence visual state
 - [x] 在 side panel 新增 per-category score details
-- [ ] 新增單一 collapsed item 的 user override
+- [x] 新增單一 collapsed item 的 user override
 
 驗收：
 
@@ -191,7 +191,7 @@
 - [x] 重用 shared normalization path
 - [x] 重用 shared scoring and dashboard path
 - [ ] 以 live Threads 驗證 selectors
-- [ ] 新增 Threads fixture-based regression examples
+- [x] 新增 Threads fixture-based regression examples
 - [ ] 改善 Threads author 與 permalink extraction
 
 驗收：
@@ -208,16 +208,16 @@
 - [x] 提供本機資料清除控制
 - [x] 預設避免儲存原始可見文字
 - [ ] 實作 IndexedDB persistence
-- [ ] 新增 daily rollups
-- [ ] 新增 retention settings
+- [x] 新增 daily rollups
+- [x] 新增 retention settings
 - [ ] 新增 local analytics export/import
 
 驗收：
 
 - [x] Scores 可透過 local storage 在 extension runtime reload 後保存
 - [x] 使用者可以清除已儲存 score data
-- [ ] 每日指標在本機產生
-- [ ] Retention behavior 已在 UI 中文件化
+- [x] 每日指標在本機產生
+- [x] Retention behavior 已在 UI 中文件化
 
 ### Milestone 7：MVP Hardening
 

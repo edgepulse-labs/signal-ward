@@ -52,6 +52,10 @@
           <span>Collapse threshold <b id="thresholdValue">72%</b></span>
           <input id="toxicityThreshold" type="range" min="0" max="1" step="0.01">
         </label>
+        <label class="field">
+          <span>Retention days</span>
+          <input id="retentionDays" type="number" min="1" max="365" step="1">
+        </label>
         <label class="toggle">
           <input id="analysisMode" type="checkbox">
           <span>Use heuristic mode only</span>
@@ -71,6 +75,11 @@
       <section class="panel">
         <h2>Category Details</h2>
         <div id="categoryDetails" class="categories"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Daily Rollup</h2>
+        <dl id="dailyRollup" class="privacy-status"></dl>
       </section>
 
       <section class="panel">

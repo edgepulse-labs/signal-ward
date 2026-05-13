@@ -43,8 +43,13 @@ Side panel 會顯示：
 - Collapse threshold：貼文被摺疊的分數門檻。
 - Use heuristic mode only：停用 Ollama 呼叫，只使用本機 keyword heuristic。
 - Store raw visible text locally：將原始可見貼文文字儲存在本機 Chrome extension storage。
+- Retention days：在指定天數後清除本機保存的 scores 與 daily rollups。
 
 調整控制項後，請點選 "Save settings"。
+
+## 閱讀 Daily Rollups
+
+Daily Rollup panel 會摘要今天的本機活動，包括已分析項目數、高毒性項目數、平均情緒暴露估計、平均宣傳風險估計，以及 Ollama 與 heuristic scoring 的比例。
 
 ## 檢查 Ollama
 

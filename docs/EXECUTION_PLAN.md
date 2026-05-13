@@ -2,7 +2,7 @@
 
 ## Document Status
 
-- Version: v0.3 Task Tracker
+- Version: v0.4 Task Tracker
 - Source: `docs/PRD.md`
 - Scope: MVP Phase 1
 - Target platforms: X and Threads
@@ -106,7 +106,7 @@ Acceptance:
 - [x] Debounce DOM mutation scans
 - [x] Ignore off-viewport candidates
 - [ ] Verify selectors against live X
-- [ ] Add fixture-based regression examples
+- [x] Add fixture-based regression examples
 - [ ] Improve extraction confidence calibration
 
 Acceptance:
@@ -150,7 +150,7 @@ Acceptance:
 - [x] Label heuristic explanations separately from local model explanations
 - [x] Add low-confidence visual state
 - [x] Add per-category score details in side panel
-- [ ] Add user override for a single collapsed item
+- [x] Add user override for a single collapsed item
 
 Acceptance:
 
@@ -191,7 +191,7 @@ Acceptance:
 - [x] Reuse shared normalization path
 - [x] Reuse shared scoring and dashboard path
 - [ ] Verify selectors against live Threads
-- [ ] Add Threads fixture-based regression examples
+- [x] Add Threads fixture-based regression examples
 - [ ] Improve author and permalink extraction for Threads
 
 Acceptance:
@@ -208,16 +208,16 @@ Acceptance:
 - [x] Provide local data clearing control
 - [x] Avoid storing raw visible text by default
 - [ ] Implement IndexedDB persistence
-- [ ] Add daily rollups
-- [ ] Add retention settings
+- [x] Add daily rollups
+- [x] Add retention settings
 - [ ] Add export/import for local analytics
 
 Acceptance:
 
 - [x] Scores can survive extension runtime reload through local storage
 - [x] Users can clear stored score data
-- [ ] Daily metrics are generated locally
-- [ ] Retention behavior is documented in the UI
+- [x] Daily metrics are generated locally
+- [x] Retention behavior is documented in the UI
 
 ### Milestone 7: MVP Hardening
 
