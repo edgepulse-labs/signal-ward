@@ -44,6 +44,7 @@ Side panel 會顯示：
 - Collapse threshold：貼文被摺疊的分數門檻。
 - Use heuristic mode only：停用 Ollama 呼叫，只使用本機 keyword heuristic。
 - Store raw visible text locally：將原始可見貼文文字儲存在本機 Chrome extension storage。
+- Store model debug traces locally：記錄最近的模型原始回應、解析後 JSON、正規化分數與 fallback 錯誤，供除錯使用。
 - 協助發佈匿名統計資訊到伺服器：可選的雲端協作設定，預設關閉。
 - 啟用聯防摺疊建議：可選的伺服器輔助提早摺疊設定，預設關閉。
 - Retention days：在指定天數後清除本機保存的 scores 與 daily rollups。
@@ -51,6 +52,20 @@ Side panel 會顯示：
 調整控制項後，請點選「儲存設定」。語言變更會立即套用到面板，並在儲存設定後保留。
 
 雲端協作設定預設關閉。只有在使用者明確啟用，且資料蒐集伺服器合約完成後，才應送出或接收伺服器資料。
+
+## 除錯模型回應
+
+如果 OpenAI-compatible 或 Ollama 分析看起來全部回傳 0 分，請啟用「在本機儲存模型除錯紀錄」、儲存設定、重新整理 feed，然後查看 Model Debug / 模型除錯面板。
+
+除錯面板會顯示：
+
+- 模型原始 message content，
+- 成功解析時的 JSON，
+- PCFA 實際使用的正規化分數，
+- HTTP 狀態與回應結構，
+- 模型輸出無法解析時的 fallback 錯誤。
+
+除錯紀錄只會儲存在擴充功能本機儲存中，並可從模型除錯面板清除。
 
 ## 閱讀 Daily Rollups
 

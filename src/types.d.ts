@@ -64,6 +64,7 @@ export interface Settings {
   toxicityThreshold: number;
   analysisMode: "ollama" | "heuristic";
   storeRawText: boolean;
+  modelDebugMode: boolean;
   shareStatsWithServer: boolean;
   enableCollectiveDefense: boolean;
   retentionDays: number;

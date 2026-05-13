@@ -14,6 +14,7 @@ const elements = {
   retentionDays: document.querySelector("#retentionDays"),
   analysisMode: document.querySelector("#analysisMode"),
   storeRawText: document.querySelector("#storeRawText"),
+  modelDebugMode: document.querySelector("#modelDebugMode"),
   shareStatsWithServer: document.querySelector("#shareStatsWithServer"),
   enableCollectiveDefense: document.querySelector("#enableCollectiveDefense"),
   checkOllama: document.querySelector("#checkOllama"),
@@ -21,9 +22,11 @@ const elements = {
   ollamaDetail: document.querySelector("#ollamaDetail"),
   saveSettings: document.querySelector("#saveSettings"),
   clearData: document.querySelector("#clearData"),
+  clearModelDebug: document.querySelector("#clearModelDebug"),
   recentList: document.querySelector("#recentList"),
   categoryDetails: document.querySelector("#categoryDetails"),
   dailyRollup: document.querySelector("#dailyRollup"),
+  modelDebugList: document.querySelector("#modelDebugList"),
   privacyStatus: document.querySelector("#privacyStatus")
 };
 const i18n = globalThis.PCFA_I18N;
@@ -35,6 +38,7 @@ elements.toxicityThreshold.addEventListener("input", () => {
 });
 elements.saveSettings.addEventListener("click", saveSettings);
 elements.clearData.addEventListener("click", clearData);
+elements.clearModelDebug.addEventListener("click", clearModelDebug);
 elements.checkOllama.addEventListener("click", checkOllama);
 elements.modelProvider.addEventListener("change", syncProviderControls);
 elements.language.addEventListener("change", () => {
@@ -86,6 +90,7 @@ function render(state) {
   elements.retentionDays.value = settings.retentionDays ?? 30;
   elements.analysisMode.checked = settings.analysisMode === "heuristic";
   elements.storeRawText.checked = Boolean(settings.storeRawText);
+  elements.modelDebugMode.checked = Boolean(settings.modelDebugMode);
   elements.shareStatsWithServer.checked = Boolean(settings.shareStatsWithServer);
   elements.enableCollectiveDefense.checked = Boolean(settings.enableCollectiveDefense);
   syncProviderControls();
@@ -93,6 +98,7 @@ function render(state) {
   renderRecent(scores);
   renderCategories(scores);
   renderDailyRollup(state.dailyRollups || {});
+  renderModelDebug(state.modelDebugTraces || []);
   renderPrivacyStatus(state, scores);
 }
 
@@ -245,6 +251,65 @@ function renderDailyRollup(dailyRollups) {
   }
 }
 
+function renderModelDebug(traces) {
+  elements.modelDebugList.innerHTML = "";
+
+  if (!traces.length) {
+    const empty = document.createElement("div");
+    empty.className = "recent-empty";
+    empty.textContent = t("modelDebugEmpty");
+    elements.modelDebugList.append(empty);
+    return;
+  }
+
+  for (const trace of traces.slice(0, 6)) {
+    const details = document.createElement("details");
+    details.className = "debug-item";
+    const summary = document.createElement("summary");
+    summary.textContent = t("modelDebugSummary", {
+      status: trace.ok ? t("debugStatusOk") : t("debugStatusFailed"),
+      provider: trace.provider || t("contentClassUnknown"),
+      parseStatus: trace.parseStatus || "unknown",
+      score: formatPercent(trace.normalized?.scores?.toxicity || 0)
+    });
+
+    const meta = document.createElement("dl");
+    meta.className = "debug-meta";
+    appendDebugRow(meta, t("debugCheckedAt"), trace.checkedAt || "");
+    appendDebugRow(meta, t("debugModel"), trace.model || "");
+    appendDebugRow(meta, t("debugHttpStatus"), String(trace.httpStatus || trace.firstHttpStatus || ""));
+    appendDebugRow(meta, t("debugEndpoint"), trace.endpoint || "");
+    appendDebugRow(meta, t("debugNormalizedScores"), JSON.stringify(trace.normalized?.scores || {}, null, 2));
+    appendDebugRow(meta, t("debugClassification"), JSON.stringify(trace.normalized?.classification || {}, null, 2));
+    appendDebugRow(meta, t("debugRawResponseShape"), JSON.stringify(trace.rawResponseShape || {}, null, 2));
+    appendDebugRow(meta, t("debugError"), trace.error || "");
+
+    const raw = document.createElement("pre");
+    raw.className = "debug-pre";
+    raw.textContent = trace.rawMessageContent || t("debugNoRawContent");
+
+    const parsed = document.createElement("pre");
+    parsed.className = "debug-pre";
+    parsed.textContent = trace.parsed || t("debugNoParsedJson");
+
+    const rawTitle = document.createElement("strong");
+    rawTitle.textContent = t("debugRawModelContent");
+    const parsedTitle = document.createElement("strong");
+    parsedTitle.textContent = t("debugParsedJson");
+
+    details.append(summary, meta, rawTitle, raw, parsedTitle, parsed);
+    elements.modelDebugList.append(details);
+  }
+}
+
+function appendDebugRow(list, label, value) {
+  const term = document.createElement("dt");
+  const detail = document.createElement("dd");
+  term.textContent = label;
+  detail.textContent = value || "-";
+  list.append(term, detail);
+}
+
 function checkOllama() {
   const settings = readSettingsForm();
   const provider = settings.modelProvider || "ollama";
@@ -287,6 +352,7 @@ function readSettingsForm() {
     retentionDays: Number(elements.retentionDays.value),
     analysisMode: elements.analysisMode.checked ? "heuristic" : "ollama",
     storeRawText: elements.storeRawText.checked,
+    modelDebugMode: elements.modelDebugMode.checked,
     shareStatsWithServer: elements.shareStatsWithServer.checked,
     enableCollectiveDefense: elements.enableCollectiveDefense.checked
   };
@@ -295,6 +361,10 @@ function readSettingsForm() {
 
 function clearData() {
   chrome.runtime.sendMessage({ type: "PCFA_CLEAR_DATA" }, refreshState);
+}
+
+function clearModelDebug() {
+  chrome.runtime.sendMessage({ type: "PCFA_CLEAR_MODEL_DEBUG" }, refreshState);
 }
 
 function formatPercent(value) {

@@ -84,6 +84,10 @@
           <span data-i18n="storeRawTextLabel">Store raw visible text locally</span>
         </label>
         <label class="toggle">
+          <input id="modelDebugMode" type="checkbox">
+          <span data-i18n="modelDebugModeLabel">Store model debug traces locally</span>
+        </label>
+        <label class="toggle">
           <input id="shareStatsWithServer" type="checkbox">
           <span data-i18n="shareStatsWithServerLabel">Help publish anonymous statistics to a server</span>
         </label>
@@ -110,6 +114,17 @@
       <section class="panel">
         <h2 data-i18n="dailyRollupTitle">Daily Rollup</h2>
         <dl id="dailyRollup" class="privacy-status"></dl>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading-row">
+          <h2 data-i18n="modelDebugTitle">Model Debug</h2>
+          <button id="clearModelDebug" class="secondary compact" type="button" data-i18n="clearModelDebugButton">Clear</button>
+        </div>
+        <p class="setting-note" data-i18n="modelDebugNote">
+          Enable debug mode, refresh the feed, then inspect the latest local model responses here.
+        </p>
+        <div id="modelDebugList" class="debug-list"></div>
       </section>
 
       <section class="panel">

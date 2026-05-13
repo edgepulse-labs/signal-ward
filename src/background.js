@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS = {
   toxicityThreshold: 0.72,
   analysisMode: "ollama",
   storeRawText: false,
+  modelDebugMode: false,
   shareStatsWithServer: false,
   enableCollectiveDefense: false,
   retentionDays: 30,
@@ -79,6 +80,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message?.type === "PCFA_CLEAR_DATA") {
     clearData()
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message?.type === "PCFA_CLEAR_MODEL_DEBUG") {
+    clearModelDebugTraces()
       .then(() => sendResponse({ ok: true }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
@@ -180,6 +188,7 @@ function desiredAnalysisSource(settings) {
 }
 
 async function analyzeWithOllama(item, settings) {
+  const trace = createModelDebugTrace("ollama", settings);
   const response = await fetch(OLLAMA_GENERATE_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -192,15 +201,40 @@ async function analyzeWithOllama(item, settings) {
   });
 
   if (!response.ok) {
+    await recordModelDebugTrace(settings, {
+      ...trace,
+      ok: false,
+      httpStatus: response.status,
+      error: `Ollama returned HTTP ${response.status}.`
+    });
     throw new Error(`Ollama returned HTTP ${response.status}.`);
   }
 
   const data = await response.json();
+  trace.httpStatus = response.status;
+  trace.rawMessageContent = truncateDebugText(data.response);
   let parsed = safeJsonParse(data.response);
+  trace.parseStatus = parsed ? "parsed" : "retrying";
   if (!parsed) {
-    parsed = await retryOllamaJsonAnalysis(item, settings);
+    try {
+      parsed = await retryOllamaJsonAnalysis(item, settings);
+      trace.retryParsed = true;
+    } catch (error) {
+      await recordModelDebugTrace(settings, {
+        ...trace,
+        ok: false,
+        error: error.message
+      });
+      throw error;
+    }
   }
   const normalized = normalizeModelOutput(parsed, settings, item);
+  await recordModelDebugTrace(settings, {
+    ...trace,
+    ok: true,
+    parsed,
+    normalized: createNormalizedDebugSnapshot(normalized)
+  });
 
   return {
     model: settings.model || DEFAULT_SETTINGS.model,
@@ -218,6 +252,7 @@ async function analyzeWithModelProvider(item, settings) {
 
 async function analyzeWithOpenAICompatible(item, settings) {
   const baseUrl = normalizeLocalOpenAIBaseUrl(settings.openaiBaseUrl);
+  const trace = createModelDebugTrace("openai-compatible", settings, `${baseUrl}/chat/completions`);
   let response = await fetchOpenAICompatibleChatCompletion(baseUrl, settings, [
     {
       role: "system",
@@ -230,6 +265,7 @@ async function analyzeWithOpenAICompatible(item, settings) {
   ], true);
 
   if (!response.ok && response.status >= 400 && response.status < 500) {
+    trace.firstHttpStatus = response.status;
     response = await fetchOpenAICompatibleChatCompletion(baseUrl, settings, [
       {
         role: "system",
@@ -243,15 +279,42 @@ async function analyzeWithOpenAICompatible(item, settings) {
   }
 
   if (!response.ok) {
+    await recordModelDebugTrace(settings, {
+      ...trace,
+      ok: false,
+      httpStatus: response.status,
+      error: `OpenAI-compatible provider returned HTTP ${response.status}.`
+    });
     throw new Error(`OpenAI-compatible provider returned HTTP ${response.status}.`);
   }
 
   const data = await response.json();
-  let parsed = safeJsonParse(data.choices?.[0]?.message?.content);
+  const rawContent = data.choices?.[0]?.message?.content;
+  trace.httpStatus = response.status;
+  trace.rawMessageContent = truncateDebugText(rawContent);
+  trace.rawResponseShape = summarizeResponseShape(data);
+  let parsed = safeJsonParse(rawContent);
+  trace.parseStatus = parsed ? "parsed" : "retrying";
   if (!parsed) {
-    parsed = await retryOpenAICompatibleJsonAnalysis(item, settings);
+    try {
+      parsed = await retryOpenAICompatibleJsonAnalysis(item, settings);
+      trace.retryParsed = true;
+    } catch (error) {
+      await recordModelDebugTrace(settings, {
+        ...trace,
+        ok: false,
+        error: error.message
+      });
+      throw error;
+    }
   }
   const normalized = normalizeModelOutput(parsed, settings, item);
+  await recordModelDebugTrace(settings, {
+    ...trace,
+    ok: true,
+    parsed,
+    normalized: createNormalizedDebugSnapshot(normalized)
+  });
 
   return {
     model: settings.model || DEFAULT_SETTINGS.model,
@@ -663,12 +726,19 @@ function buildHeuristicExplanations(scores, settings = DEFAULT_SETTINGS) {
 }
 
 async function getState() {
-  const state = await chrome.storage.local.get(["settings", "metrics", "scores", "dailyRollups"]);
+  const state = await chrome.storage.local.get([
+    "settings",
+    "metrics",
+    "scores",
+    "dailyRollups",
+    "modelDebugTraces"
+  ]);
   return {
     settings: { ...DEFAULT_SETTINGS, ...(state.settings || {}) },
     metrics: state.metrics || DEFAULT_METRICS,
     scores: state.scores || {},
-    dailyRollups: state.dailyRollups || DEFAULT_DAILY_ROLLUPS
+    dailyRollups: state.dailyRollups || DEFAULT_DAILY_ROLLUPS,
+    modelDebugTraces: state.modelDebugTraces || []
   };
 }
 
@@ -685,6 +755,7 @@ async function updateSettings(nextSettings = {}) {
     openaiApiKey: String(nextSettings.openaiApiKey ?? current.openaiApiKey ?? "").trim(),
     toxicityThreshold: clampNumber(nextSettings.toxicityThreshold, 0, 1, current.toxicityThreshold),
     retentionDays: Math.round(clampNumber(nextSettings.retentionDays, 1, 365, current.retentionDays)),
+    modelDebugMode: Boolean(nextSettings.modelDebugMode),
     shareStatsWithServer: Boolean(nextSettings.shareStatsWithServer),
     enableCollectiveDefense: Boolean(nextSettings.enableCollectiveDefense),
     language: normalizeLanguageSetting(nextSettings.language || current.language)
@@ -699,6 +770,10 @@ async function clearData() {
     scores: {},
     dailyRollups: DEFAULT_DAILY_ROLLUPS
   });
+}
+
+async function clearModelDebugTraces() {
+  await chrome.storage.local.set({ modelDebugTraces: [] });
 }
 
 async function readMetrics() {
@@ -851,6 +926,67 @@ function normalizeExplanations(explanations, settings = DEFAULT_SETTINGS) {
   }));
 }
 
+async function recordModelDebugTrace(settings, trace) {
+  if (!settings.modelDebugMode) {
+    return;
+  }
+
+  const stored = await chrome.storage.local.get("modelDebugTraces");
+  const traces = Array.isArray(stored.modelDebugTraces) ? stored.modelDebugTraces : [];
+  await chrome.storage.local.set({
+    modelDebugTraces: [sanitizeDebugTrace(trace), ...traces].slice(0, 12)
+  });
+}
+
+function createModelDebugTrace(provider, settings, endpoint = "") {
+  return {
+    checkedAt: new Date().toISOString(),
+    provider,
+    endpoint,
+    model: settings.model || DEFAULT_SETTINGS.model,
+    ok: false,
+    parseStatus: "not-started"
+  };
+}
+
+function sanitizeDebugTrace(trace) {
+  return {
+    checkedAt: trace.checkedAt,
+    provider: trace.provider,
+    endpoint: trace.endpoint,
+    model: trace.model,
+    ok: Boolean(trace.ok),
+    httpStatus: trace.httpStatus,
+    firstHttpStatus: trace.firstHttpStatus,
+    parseStatus: trace.parseStatus,
+    retryParsed: Boolean(trace.retryParsed),
+    rawResponseShape: trace.rawResponseShape,
+    rawMessageContent: truncateDebugText(trace.rawMessageContent),
+    parsed: trace.parsed ? truncateDebugText(JSON.stringify(trace.parsed, null, 2), 5000) : "",
+    normalized: trace.normalized || null,
+    error: truncateDebugText(trace.error)
+  };
+}
+
+function createNormalizedDebugSnapshot(normalized) {
+  return {
+    scores: normalized.scores,
+    confidence: normalized.confidence,
+    classification: normalized.classification,
+    explanationCount: normalized.explanations.length,
+    summary: truncateDebugText(normalized.summary, 500)
+  };
+}
+
+function summarizeResponseShape(data) {
+  return {
+    hasChoices: Array.isArray(data?.choices),
+    choiceCount: Array.isArray(data?.choices) ? data.choices.length : 0,
+    firstMessageType: typeof data?.choices?.[0]?.message?.content,
+    finishReason: data?.choices?.[0]?.finish_reason || ""
+  };
+}
+
 function safeJsonParse(value) {
   if (typeof value !== "string") {
     return null;
@@ -901,6 +1037,11 @@ function normalizeText(text) {
 
 function summarizeText(text) {
   return text.length <= 180 ? text : `${text.slice(0, 177)}...`;
+}
+
+function truncateDebugText(value, maxLength = 3000) {
+  const text = typeof value === "string" ? value : String(value || "");
+  return text.length <= maxLength ? text : `${text.slice(0, maxLength - 3)}...`;
 }
 
 function countMatches(text, needles) {

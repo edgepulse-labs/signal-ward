@@ -44,6 +44,7 @@ Available settings:
 - Collapse threshold: score level where posts are collapsed.
 - Use heuristic mode only: disables Ollama calls and uses local keyword heuristics.
 - Store raw visible text locally: stores raw visible post text in local Chrome extension storage.
+- Store model debug traces locally: records recent raw model responses, parsed JSON, normalized scores, and fallback errors for debugging.
 - Help publish anonymous statistics to a server: opt-in cloud collaboration setting, off by default.
 - Enable collective defense suggestions: opt-in server-assisted early-folding setting, off by default.
 - Retention days: prunes locally stored scores and daily rollups after the selected number of days.
@@ -51,6 +52,20 @@ Available settings:
 Click "Save settings" after changing controls. Language changes apply immediately in the panel and are stored when settings are saved.
 
 Cloud collaboration settings are disabled by default. They should only send or receive server data after the user explicitly enables them and a collection server contract is implemented.
+
+## Debug Model Responses
+
+If OpenAI-compatible or Ollama analysis appears to return all-zero scores, enable "Store model debug traces locally", save settings, reload the feed, and inspect the Model Debug panel.
+
+The debug panel shows:
+
+- raw model message content,
+- parsed JSON when parsing succeeds,
+- normalized scores used by PCFA,
+- HTTP status and response shape,
+- fallback errors when model output cannot be parsed.
+
+Debug traces are stored only in local extension storage and can be cleared from the Model Debug panel.
 
 ## Read Daily Rollups
 
