@@ -52,6 +52,7 @@ Build a local-first browser assistant that analyzes only visible social feed con
 - [x] Side panel dashboard
 - [x] Local score and session metric persistence through `chrome.storage.local`
 - [x] Transparent scoring explanations
+- [x] English and Traditional Chinese UI localization with browser-language auto selection
 - [ ] IndexedDB persistence
 - [ ] Calibrated classifier integration
 - [ ] Attention-time analytics
@@ -178,6 +179,7 @@ Acceptance:
 - [ ] Add feed-level outrage amplification ratio
 - [ ] Add discussion diversity score
 - [x] Add privacy/compliance status panel
+- [x] Add browser-language auto selection and manual language preference
 
 Acceptance:
 

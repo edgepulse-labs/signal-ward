@@ -39,13 +39,14 @@ The side panel shows:
 
 Available settings:
 
+- Language: automatic browser-language selection, English, or Traditional Chinese.
 - Ollama model: local model name sent to Ollama.
 - Collapse threshold: score level where posts are collapsed.
 - Use heuristic mode only: disables Ollama calls and uses local keyword heuristics.
 - Store raw visible text locally: stores raw visible post text in local Chrome extension storage.
 - Retention days: prunes locally stored scores and daily rollups after the selected number of days.
 
-Click "Save settings" after changing controls.
+Click "Save settings" after changing controls. Language changes apply immediately in the panel and are stored when settings are saved.
 
 ## Read Daily Rollups
 

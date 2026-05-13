@@ -1,0 +1,14 @@
+{
+  "appName": {
+    "message": "Personal Cognitive Firewall Assistant"
+  },
+  "appShortName": {
+    "message": "PCFA"
+  },
+  "appDescription": {
+    "message": "Local-first cognitive firewall for visible social feeds."
+  },
+  "actionTitle": {
+    "message": "PCFA"
+  }
+}

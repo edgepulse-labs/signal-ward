@@ -52,6 +52,7 @@
 - [x] 側邊面板 dashboard
 - [x] 透過 `chrome.storage.local` 本機保存分數與 session 指標
 - [x] 透明的評分解釋
+- [x] 英文與繁體中文 UI 多語系，並依瀏覽器語言自動選擇
 - [ ] IndexedDB persistence
 - [ ] 校準後的 classifier integration
 - [ ] 注意力時間 analytics
@@ -178,6 +179,7 @@
 - [ ] 新增 feed-level outrage amplification ratio
 - [ ] 新增 discussion diversity score
 - [x] 新增 privacy/compliance status panel
+- [x] 新增依瀏覽器語言自動選擇與手動語言偏好設定
 
 驗收：
 

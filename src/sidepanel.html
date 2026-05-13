@@ -11,98 +11,103 @@
       <header class="topbar">
         <div>
           <h1>PCFA</h1>
-          <p>Local cognitive firewall</p>
+          <p data-i18n="appSubtitle">Local cognitive firewall</p>
         </div>
-        <span id="runtimeStatus" class="status">Local</span>
+        <span id="runtimeStatus" class="status" data-i18n="statusLocal">Local</span>
       </header>
 
-      <section class="metrics" aria-label="Session metrics">
+      <section class="metrics" data-i18n-aria-label="metricsAria" aria-label="Session metrics">
         <article>
           <span id="postsAnalyzed">0</span>
-          <label>Analyzed</label>
+          <label data-i18n="metricAnalyzed">Analyzed</label>
         </article>
         <article>
           <span id="highToxicityPosts">0</span>
-          <label>High toxicity</label>
+          <label data-i18n="metricHighToxicity">High toxicity</label>
         </article>
         <article>
           <span id="averageToxicity">0%</span>
-          <label>Avg toxicity</label>
+          <label data-i18n="metricAvgToxicity">Avg toxicity</label>
         </article>
         <article>
           <span id="averageInfo">0%</span>
-          <label>Avg info</label>
+          <label data-i18n="metricAvgInfo">Avg info</label>
         </article>
       </section>
 
       <section class="panel">
-        <h2>Controls</h2>
+        <h2 data-i18n="controlsTitle">Controls</h2>
         <div class="health-row">
           <div>
-            <strong id="ollamaStatus">Ollama not checked</strong>
-            <span id="ollamaDetail">Use the check button to verify localhost.</span>
+            <strong id="ollamaStatus" data-i18n="ollamaNotChecked">Ollama not checked</strong>
+            <span id="ollamaDetail" data-i18n="verifyLocalhost">Use the check button to verify localhost.</span>
           </div>
-          <button id="checkOllama" class="secondary compact" type="button">Check</button>
+          <button id="checkOllama" class="secondary compact" type="button" data-i18n="checkButton">Check</button>
         </div>
         <label class="field">
-          <span>Model provider</span>
+          <span data-i18n="languageLabel">Language</span>
+          <select id="language"></select>
+        </label>
+        <label class="field">
+          <span data-i18n="modelProviderLabel">Model provider</span>
           <select id="modelProvider">
             <option value="ollama">Ollama</option>
             <option value="openai-compatible">OpenAI-compatible</option>
           </select>
         </label>
         <label class="field">
-          <span>Model</span>
+          <span data-i18n="modelLabel">Model</span>
           <input id="model" type="text" autocomplete="off" spellcheck="false">
         </label>
         <label class="field provider-openai">
-          <span>OpenAI-compatible base URL</span>
+          <span data-i18n="openAIBaseUrlLabel">OpenAI-compatible base URL</span>
           <input id="openaiBaseUrl" type="url" autocomplete="off" spellcheck="false">
         </label>
         <label class="field provider-openai">
-          <span>OpenAI-compatible API key</span>
+          <span data-i18n="openAIApiKeyLabel">OpenAI-compatible API key</span>
           <input id="openaiApiKey" type="password" autocomplete="off" spellcheck="false">
         </label>
         <label class="field">
-          <span>Collapse threshold <b id="thresholdValue">72%</b></span>
+          <span><span data-i18n="collapseThresholdLabel">Collapse threshold</span> <b id="thresholdValue">72%</b></span>
           <input id="toxicityThreshold" type="range" min="0" max="1" step="0.01">
         </label>
         <label class="field">
-          <span>Retention days</span>
+          <span data-i18n="retentionDaysLabel">Retention days</span>
           <input id="retentionDays" type="number" min="1" max="365" step="1">
         </label>
         <label class="toggle">
           <input id="analysisMode" type="checkbox">
-          <span>Use heuristic mode only</span>
+          <span data-i18n="heuristicOnlyLabel">Use heuristic mode only</span>
         </label>
         <label class="toggle">
           <input id="storeRawText" type="checkbox">
-          <span>Store raw visible text locally</span>
+          <span data-i18n="storeRawTextLabel">Store raw visible text locally</span>
         </label>
-        <button id="saveSettings" type="button">Save settings</button>
+        <button id="saveSettings" type="button" data-i18n="saveSettingsButton">Save settings</button>
       </section>
 
       <section class="panel">
-        <h2>Recent Signals</h2>
+        <h2 data-i18n="recentSignalsTitle">Recent Signals</h2>
         <div id="recentList" class="recent"></div>
       </section>
 
       <section class="panel">
-        <h2>Category Details</h2>
+        <h2 data-i18n="categoryDetailsTitle">Category Details</h2>
         <div id="categoryDetails" class="categories"></div>
       </section>
 
       <section class="panel">
-        <h2>Daily Rollup</h2>
+        <h2 data-i18n="dailyRollupTitle">Daily Rollup</h2>
         <dl id="dailyRollup" class="privacy-status"></dl>
       </section>
 
       <section class="panel">
-        <h2>Privacy</h2>
+        <h2 data-i18n="privacyTitle">Privacy</h2>
         <dl id="privacyStatus" class="privacy-status"></dl>
-        <button id="clearData" class="danger" type="button">Clear local scores</button>
+        <button id="clearData" class="danger" type="button" data-i18n="clearDataButton">Clear local scores</button>
       </section>
     </main>
+    <script src="./i18n.js"></script>
     <script src="./sidepanel.js"></script>
   </body>
 </html>

@@ -4,6 +4,7 @@ const elements = {
   highToxicityPosts: document.querySelector("#highToxicityPosts"),
   averageToxicity: document.querySelector("#averageToxicity"),
   averageInfo: document.querySelector("#averageInfo"),
+  language: document.querySelector("#language"),
   modelProvider: document.querySelector("#modelProvider"),
   model: document.querySelector("#model"),
   openaiBaseUrl: document.querySelector("#openaiBaseUrl"),
@@ -23,8 +24,10 @@ const elements = {
   dailyRollup: document.querySelector("#dailyRollup"),
   privacyStatus: document.querySelector("#privacyStatus")
 };
+const i18n = globalThis.PCFA_I18N;
+let translator = i18n.createTranslator(i18n.AUTO_LANGUAGE);
 
-document.addEventListener("DOMContentLoaded", refreshState);
+document.addEventListener("DOMContentLoaded", init);
 elements.toxicityThreshold.addEventListener("input", () => {
   elements.thresholdValue.textContent = formatPercent(Number(elements.toxicityThreshold.value));
 });
@@ -32,6 +35,9 @@ elements.saveSettings.addEventListener("click", saveSettings);
 elements.clearData.addEventListener("click", clearData);
 elements.checkOllama.addEventListener("click", checkOllama);
 elements.modelProvider.addEventListener("change", syncProviderControls);
+elements.language.addEventListener("change", () => {
+  applyLanguage(elements.language.value);
+});
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "local" && (changes.metrics || changes.scores || changes.settings)) {
@@ -39,10 +45,15 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 });
 
+function init() {
+  renderLanguageOptions();
+  refreshState();
+}
+
 function refreshState() {
   chrome.runtime.sendMessage({ type: "PCFA_GET_STATE" }, (response) => {
     if (!response?.ok) {
-      elements.runtimeStatus.textContent = "Unavailable";
+      elements.runtimeStatus.textContent = t("statusUnavailable");
       return;
     }
     render(response.state);
@@ -56,8 +67,10 @@ function render(state) {
   const analyzed = metrics.postsAnalyzed || 0;
 
   const provider = settings.modelProvider || "ollama";
+  applyLanguage(settings.language || "auto");
+  elements.language.value = settings.language || "auto";
   elements.runtimeStatus.textContent =
-    settings.analysisMode === "heuristic" ? "Heuristic" : providerLabel(provider);
+    settings.analysisMode === "heuristic" ? t("statusHeuristic") : providerLabel(provider);
   elements.postsAnalyzed.textContent = String(analyzed);
   elements.highToxicityPosts.textContent = String(metrics.highToxicityPosts || 0);
   elements.averageToxicity.textContent = formatPercent(analyzed ? metrics.totalToxicity / analyzed : 0);
@@ -79,6 +92,33 @@ function render(state) {
   renderPrivacyStatus(state, scores);
 }
 
+function renderLanguageOptions() {
+  elements.language.innerHTML = "";
+  for (const [value, labelKey] of i18n.LANGUAGE_OPTIONS) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.dataset.i18n = labelKey;
+    option.textContent = t(labelKey);
+    elements.language.append(option);
+  }
+}
+
+function applyLanguage(preference) {
+  translator = i18n.createTranslator(preference);
+  document.documentElement.lang = translator.language;
+
+  for (const element of document.querySelectorAll("[data-i18n]")) {
+    element.textContent = t(element.dataset.i18n);
+  }
+  for (const element of document.querySelectorAll("[data-i18n-aria-label]")) {
+    element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
+  }
+  for (const option of elements.language.options) {
+    option.textContent = t(option.dataset.i18n);
+  }
+  syncProviderControls();
+}
+
 function renderRecent(scores) {
   elements.recentList.innerHTML = "";
   const recent = scores
@@ -88,7 +128,7 @@ function renderRecent(scores) {
   if (!recent.length) {
     const empty = document.createElement("div");
     empty.className = "recent-empty";
-    empty.textContent = "No analyzed posts yet. Open X or Threads and browse normally.";
+    empty.textContent = t("noRecentPosts");
     elements.recentList.append(empty);
     return;
   }
@@ -97,11 +137,16 @@ function renderRecent(scores) {
     const item = document.createElement("div");
     item.className = "recent-item";
     const title = document.createElement("strong");
-    title.textContent = `${score.platform || "feed"} · ${score.source || "local"} · toxicity ${formatPercent(score.scores.toxicity)}`;
+    title.textContent = t("recentTitle", {
+      platform: score.platform || "feed",
+      source: score.source || t("statusLocal").toLowerCase(),
+      toxicity: formatPercent(score.scores.toxicity)
+    });
     const detail = document.createElement("span");
-    detail.textContent = `${formatPercent(score.confidence)} confidence · ${
-      score.explanations?.[0]?.reason || "Local estimate recorded."
-    }`;
+    detail.textContent = t("recentDetail", {
+      confidence: formatPercent(score.confidence),
+      reason: score.explanations?.[0]?.reason || t("localEstimateRecorded")
+    });
     item.append(title, detail);
     elements.recentList.append(item);
   }
@@ -110,15 +155,15 @@ function renderRecent(scores) {
 function renderCategories(scores) {
   elements.categoryDetails.innerHTML = "";
   const categories = [
-    ["toxicity", "Toxicity"],
-    ["anger", "Anger"],
-    ["fear", "Fear"],
-    ["hostility", "Hostility"],
-    ["informationDensity", "Information density"],
-    ["evidencePresence", "Evidence"],
-    ["propagandaRisk", "Propaganda risk"],
-    ["botSignal", "Bot signal"],
-    ["coordinationRisk", "Coordination risk"]
+    ["toxicity", t("categoryToxicity")],
+    ["anger", t("categoryAnger")],
+    ["fear", t("categoryFear")],
+    ["hostility", t("categoryHostility")],
+    ["informationDensity", t("categoryInformationDensity")],
+    ["evidencePresence", t("categoryEvidencePresence")],
+    ["propagandaRisk", t("categoryPropagandaRisk")],
+    ["botSignal", t("categoryBotSignal")],
+    ["coordinationRisk", t("categoryCoordinationRisk")]
   ];
 
   for (const [key, label] of categories) {
@@ -138,11 +183,11 @@ function renderPrivacyStatus(state, scores) {
   const settings = state.settings || {};
   const hasRawText = scores.some((score) => typeof score.item?.text === "string");
   const rows = [
-    ["Analysis endpoint", analysisEndpointLabel(settings)],
-    ["Raw visible text", settings.storeRawText || hasRawText ? "Stored locally" : "Not stored by default"],
-    ["Retention", `${settings.retentionDays || 30} days in local extension storage`],
-    ["Cloud services", "No extension cloud calls configured"],
-    ["Data clearing", "Available from this panel"]
+    [t("privacyAnalysisEndpoint"), analysisEndpointLabel(settings)],
+    [t("privacyRawVisibleText"), settings.storeRawText || hasRawText ? t("storedLocally") : t("notStoredByDefault")],
+    [t("privacyRetention"), t("retentionValue", { days: settings.retentionDays || 30 })],
+    [t("privacyCloudServices"), t("noExtensionCloudCalls")],
+    [t("privacyDataClearing"), t("availableFromPanel")]
   ];
 
   elements.privacyStatus.innerHTML = "";
@@ -170,16 +215,18 @@ function renderDailyRollup(dailyRollups) {
   };
   const analyzed = rollup.postsAnalyzed || 0;
   const rows = [
-    ["Date", today],
-    ["Analyzed", String(analyzed)],
-    ["High toxicity", String(rollup.highToxicityPosts || 0)],
-    ["Avg emotion", formatPercent(averageEmotion(rollup))],
-    ["Avg propaganda", formatPercent(analyzed ? rollup.totalPropagandaRisk / analyzed : 0)],
+    [t("date"), today],
+    [t("metricAnalyzed"), String(analyzed)],
+    [t("metricHighToxicity"), String(rollup.highToxicityPosts || 0)],
+    [t("avgEmotion"), formatPercent(averageEmotion(rollup))],
+    [t("avgPropaganda"), formatPercent(analyzed ? rollup.totalPropagandaRisk / analyzed : 0)],
     [
-      "Sources",
-      `${rollup.sources?.ollama || 0} Ollama / ${
-        rollup.sources?.openaiCompatible || 0
-      } OpenAI-compatible / ${rollup.sources?.heuristic || 0} heuristic`
+      t("sources"),
+      t("rollupSources", {
+        ollama: rollup.sources?.ollama || 0,
+        openai: rollup.sources?.openaiCompatible || 0,
+        heuristic: rollup.sources?.heuristic || 0
+      })
     ]
   ];
 
@@ -196,25 +243,26 @@ function renderDailyRollup(dailyRollups) {
 function checkOllama() {
   const settings = readSettingsForm();
   const provider = settings.modelProvider || "ollama";
-  elements.ollamaStatus.textContent = `Checking ${providerLabel(provider)}...`;
+  elements.ollamaStatus.textContent = t("checkingProvider", { provider: providerLabel(provider) });
   elements.ollamaDetail.textContent =
     provider === "openai-compatible"
-      ? `Contacting ${settings.openaiBaseUrl}.`
-      : "Contacting http://localhost:11434.";
+      ? t("contactingUrl", { url: settings.openaiBaseUrl })
+      : t("contactingUrl", { url: "http://localhost:11434" });
   chrome.runtime.sendMessage({ type: "PCFA_CHECK_OLLAMA", settings }, (response) => {
     if (!response?.ok || !response.health?.available) {
-      elements.ollamaStatus.textContent = `${providerLabel(provider)} unavailable`;
-      elements.ollamaDetail.textContent = response?.error || "Local health check failed.";
+      elements.ollamaStatus.textContent = t("providerUnavailable", { provider: providerLabel(provider) });
+      elements.ollamaDetail.textContent = response?.error || t("localHealthCheckFailed");
       return;
     }
 
     const models = response.health.models || [];
-    elements.ollamaStatus.textContent = `${providerLabel(response.health.provider)} available (${
-      response.health.latencyMs
-    } ms)`;
+    elements.ollamaStatus.textContent = t("providerAvailable", {
+      provider: providerLabel(response.health.provider),
+      latency: response.health.latencyMs
+    });
     elements.ollamaDetail.textContent = models.length
-      ? `Models: ${models.join(", ")}`
-      : "No local models reported by Ollama.";
+      ? t("modelsList", { models: models.join(", ") })
+      : t("noLocalModels");
   });
 }
 
@@ -229,6 +277,7 @@ function readSettingsForm() {
     model: elements.model.value.trim() || "llama3.2",
     openaiBaseUrl: elements.openaiBaseUrl.value.trim() || "http://localhost:1234/v1",
     openaiApiKey: elements.openaiApiKey.value.trim(),
+    language: elements.language.value,
     toxicityThreshold: Number(elements.toxicityThreshold.value),
     retentionDays: Number(elements.retentionDays.value),
     analysisMode: elements.analysisMode.checked ? "heuristic" : "ollama",
@@ -268,20 +317,26 @@ function syncProviderControls() {
     element.hidden = !isOpenAICompatible;
   }
   elements.ollamaDetail.textContent = isOpenAICompatible
-    ? "Use the check button to verify the local OpenAI-compatible endpoint."
-    : "Use the check button to verify localhost.";
+    ? t("verifyOpenAIEndpoint")
+    : t("verifyLocalhost");
 }
 
 function providerLabel(provider) {
-  return provider === "openai-compatible" ? "OpenAI-compatible" : "Ollama";
+  return provider === "openai-compatible" ? t("providerOpenAICompatible") : t("providerOllama");
 }
 
 function analysisEndpointLabel(settings) {
   if (settings.analysisMode === "heuristic") {
-    return "Local heuristic only";
+    return t("endpointHeuristicOnly");
   }
   if (settings.modelProvider === "openai-compatible") {
-    return `Local OpenAI-compatible (${settings.openaiBaseUrl || "http://localhost:1234/v1"})`;
+    return t("endpointOpenAICompatible", {
+      url: settings.openaiBaseUrl || "http://localhost:1234/v1"
+    });
   }
-  return "Local Ollama / heuristic fallback";
+  return t("endpointOllamaFallback");
+}
+
+function t(key, values) {
+  return translator.t(key, values);
 }

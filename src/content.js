@@ -4,12 +4,15 @@
     observedIds: new Set(),
     annotatedIds: new Set(),
     userExpandedIds: new Set(),
+    results: new Map(),
     observer: null,
     mutationTimer: null,
     settings: {
       toxicityThreshold: 0.72
     }
   };
+  const i18n = globalThis.PCFA_I18N;
+  let translator = i18n.createTranslator(STATE.settings.language || "auto");
 
   if (!STATE.platform) {
     return;
@@ -18,6 +21,7 @@
   chrome.runtime.sendMessage({ type: "PCFA_GET_STATE" }, (response) => {
     if (response?.ok && response.state?.settings) {
       STATE.settings = response.state.settings;
+      applyLanguage();
     }
     boot();
   });
@@ -25,9 +29,24 @@
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === "local" && changes.settings?.newValue) {
       STATE.settings = changes.settings.newValue;
+      applyLanguage();
       refreshCollapseState();
     }
   });
+
+  function applyLanguage() {
+    translator = i18n.createTranslator(STATE.settings.language || "auto");
+    const marker = document.querySelector(".pcfa-page-marker");
+    if (marker) {
+      marker.textContent = t("pageMarker");
+    }
+    for (const node of document.querySelectorAll("[data-pcfa-toxicity][data-pcfa-item-id]")) {
+      const result = STATE.results.get(node.dataset.pcfaItemId);
+      if (result) {
+        annotateResult(node, result);
+      }
+    }
+  }
 
   function boot() {
     injectPageMarker();
@@ -59,7 +78,7 @@
       annotatePending(node, item);
       chrome.runtime.sendMessage({ type: "PCFA_ANALYZE_ITEM", item }, (response) => {
         if (!response?.ok) {
-          annotateError(node, response?.error || "Local analysis unavailable.");
+          annotateError(node, response?.error || t("contentLocalAnalysisUnavailable"));
           return;
         }
         annotateResult(node, response.result);
@@ -141,7 +160,7 @@
   function annotatePending(node, item) {
     const box = ensurePanel(node, item.id);
     box.innerHTML = "";
-    box.append(createBadge("PCFA", "Analyzing locally...", "neutral"));
+    box.append(createBadge("PCFA", t("contentAnalyzingLocally"), "neutral"));
   }
 
   function annotateError(node, message) {
@@ -151,6 +170,7 @@
   }
 
   function annotateResult(node, result) {
+    STATE.results.set(result.itemId, result);
     const box = ensurePanel(node, result.itemId);
     const scores = result.scores;
     const threshold = STATE.settings.toxicityThreshold ?? 0.72;
@@ -162,14 +182,19 @@
     node.dataset.pcfaItemId = result.itemId;
     box.innerHTML = "";
     box.append(
-      createBadge("Toxicity", formatScore(scores.toxicity), scoreTone(scores.toxicity)),
-      createBadge("Anger", formatScore(scores.anger), scoreTone(scores.anger)),
-      createBadge("Info", formatScore(scores.informationDensity), scoreTone(1 - scores.informationDensity)),
+      createBadge(t("badgeToxicity"), formatScore(scores.toxicity), scoreTone(scores.toxicity)),
+      createBadge(t("badgeAnger"), formatScore(scores.anger), scoreTone(scores.anger)),
+      createBadge(
+        t("badgeInfo"),
+        formatScore(scores.informationDensity),
+        scoreTone(1 - scores.informationDensity)
+      ),
       createConfidenceBadge(result),
       createDetails(result)
     );
 
     if (shouldCollapse) {
+      expandNode(node);
       collapseNode(node, result);
     } else {
       expandNode(node);
@@ -199,7 +224,7 @@
   function createConfidenceBadge(result) {
     const confidence = Number(result.confidence || 0);
     const isLowConfidence = confidence < 0.45 || result.item?.extractionConfidence < 0.55;
-    const label = isLowConfidence ? "Uncertain" : "Confidence";
+    const label = isLowConfidence ? t("badgeUncertain") : t("badgeConfidence");
     const tone = isLowConfidence ? "warning" : "neutral";
     return createBadge(label, formatScore(confidence), tone);
   }
@@ -209,24 +234,24 @@
     details.className = "pcfa-details";
     const summary = document.createElement("summary");
     summary.textContent =
-      result.source === "heuristic" ? "Heuristic explanation" : "Local model explanation";
+      result.source === "heuristic" ? t("heuristicExplanation") : t("localModelExplanation");
     const list = document.createElement("ul");
 
     for (const explanation of result.explanations || []) {
       const item = document.createElement("li");
-      item.textContent = `${explanation.category}: ${explanation.reason}`;
+      item.textContent = `${categoryLabel(explanation.category)}: ${explanation.reason}`;
       list.append(item);
     }
 
     if (result.summary) {
       const item = document.createElement("li");
-      item.textContent = `Summary: ${result.summary}`;
+      item.textContent = `${t("summaryLabel")}: ${result.summary}`;
       list.append(item);
     }
 
     if (Number(result.confidence || 0) < 0.45) {
       const item = document.createElement("li");
-      item.textContent = "Uncertain: this estimate has low model or extraction confidence.";
+      item.textContent = t("uncertainDetail");
       list.append(item);
     }
 
@@ -243,7 +268,7 @@
     const control = document.createElement("button");
     control.type = "button";
     control.className = "pcfa-restore";
-    control.textContent = "Show original";
+    control.textContent = t("showOriginal");
     control.addEventListener("click", () => {
       STATE.userExpandedIds.add(result.itemId);
       node.dataset.pcfaUserExpanded = "true";
@@ -252,7 +277,7 @@
 
     const notice = document.createElement("div");
     notice.className = "pcfa-collapse-notice";
-    notice.textContent = `Collapsed by local estimate: toxicity ${formatScore(result.scores.toxicity)}.`;
+    notice.textContent = t("collapsedNotice", { toxicity: formatScore(result.scores.toxicity) });
     notice.append(control);
     node.prepend(notice);
   }
@@ -284,7 +309,7 @@
     }
     const marker = document.createElement("div");
     marker.className = "pcfa-page-marker";
-    marker.textContent = "PCFA local";
+    marker.textContent = t("pageMarker");
     document.documentElement.append(marker);
   }
 
@@ -324,6 +349,23 @@
     return "low";
   }
 
+  function categoryLabel(category) {
+    const key = {
+      anger: "categoryAnger",
+      botSignal: "categoryBotSignal",
+      coordinationRisk: "categoryCoordinationRisk",
+      evidence: "categoryEvidencePresence",
+      evidencePresence: "categoryEvidencePresence",
+      fear: "categoryFear",
+      hostility: "categoryHostility",
+      informationDensity: "categoryInformationDensity",
+      overall: "categoryOverall",
+      propagandaRisk: "categoryPropagandaRisk",
+      toxicity: "categoryToxicity"
+    }[category];
+    return key ? t(key) : category;
+  }
+
   function normalizeText(text) {
     return String(text || "").replace(/\s+/g, " ").trim();
   }
@@ -334,5 +376,9 @@
       hash = (hash * 33) ^ value.charCodeAt(index);
     }
     return `pcfa_${(hash >>> 0).toString(16)}`;
+  }
+
+  function t(key, values) {
+    return translator.t(key, values);
   }
 })();

@@ -29,6 +29,7 @@ if (manifest.manifest_version !== 3) {
 const jsFiles = [
   "src/background.js",
   "src/content.js",
+  "src/i18n.js",
   "src/sidepanel.js",
   "scripts/validate-extension.js",
   "scripts/validate-fixtures.js"
@@ -37,6 +38,8 @@ const jsFiles = [
 const formattedFiles = [
   ".editorconfig",
   "manifest.json",
+  "_locales/en/messages.json",
+  "_locales/zh_TW/messages.json",
   "package.json",
   "tsconfig.json",
   "fixtures/feed-extraction.json",
@@ -45,6 +48,7 @@ const formattedFiles = [
   "src/background.js",
   "src/content.css",
   "src/content.js",
+  "src/i18n.js",
   "src/sidepanel.css",
   "src/sidepanel.html",
   "src/sidepanel.js",

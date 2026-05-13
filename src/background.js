@@ -1,3 +1,5 @@
+importScripts("i18n.js");
+
 const DEFAULT_SETTINGS = {
   model: "llama3.2",
   modelProvider: "ollama",
@@ -6,7 +8,8 @@ const DEFAULT_SETTINGS = {
   toxicityThreshold: 0.72,
   analysisMode: "ollama",
   storeRawText: false,
-  retentionDays: 30
+  retentionDays: 30,
+  language: "auto"
 };
 
 const DEFAULT_METRICS = {
@@ -106,8 +109,8 @@ async function analyzeAndStore(item) {
 
   const analysis =
     settings.analysisMode === "heuristic"
-      ? heuristicAnalysis(item)
-      : await analyzeWithModelProvider(item, settings).catch(() => heuristicAnalysis(item));
+      ? heuristicAnalysis(item, settings)
+      : await analyzeWithModelProvider(item, settings).catch(() => heuristicAnalysis(item, settings));
 
   const result = {
     itemId: item.id,
@@ -120,7 +123,7 @@ async function analyzeAndStore(item) {
     summary:
       settings.storeRawText || analysis.source !== "heuristic"
         ? analysis.summary
-        : "Heuristic fallback analyzed this visible item locally.",
+        : t(settings, "heuristicSummaryFallback"),
     source: analysis.source,
     item: settings.storeRawText ? item : minimizeItem(item)
   };
@@ -145,7 +148,7 @@ async function analyzeWithOllama(item, settings) {
       model: settings.model || DEFAULT_SETTINGS.model,
       stream: false,
       format: "json",
-      prompt: buildAnalysisPrompt(item)
+      prompt: buildAnalysisPrompt(item, settings)
     })
   });
 
@@ -158,7 +161,7 @@ async function analyzeWithOllama(item, settings) {
   if (!parsed) {
     parsed = await retryOllamaJsonAnalysis(item, settings);
   }
-  const normalized = normalizeModelOutput(parsed);
+  const normalized = normalizeModelOutput(parsed, settings);
 
   return {
     model: settings.model || DEFAULT_SETTINGS.model,
@@ -186,12 +189,11 @@ async function analyzeWithOpenAICompatible(item, settings) {
       messages: [
         {
           role: "system",
-          content:
-            "You are PCFA, a local-first cognitive firewall assistant. Return valid JSON only."
+          content: t(settings, "promptSystem")
         },
         {
           role: "user",
-          content: buildAnalysisPrompt(item)
+          content: buildAnalysisPrompt(item, settings)
         }
       ]
     })
@@ -206,7 +208,7 @@ async function analyzeWithOpenAICompatible(item, settings) {
   if (!parsed) {
     parsed = await retryOpenAICompatibleJsonAnalysis(item, settings);
   }
-  const normalized = normalizeModelOutput(parsed);
+  const normalized = normalizeModelOutput(parsed, settings);
 
   return {
     model: settings.model || DEFAULT_SETTINGS.model,
@@ -223,9 +225,9 @@ async function retryOllamaJsonAnalysis(item, settings) {
       model: settings.model || DEFAULT_SETTINGS.model,
       stream: false,
       format: "json",
-      prompt: `${buildAnalysisPrompt(item)}
+      prompt: `${buildAnalysisPrompt(item, settings)}
 
-Your previous response could not be parsed as JSON. Return only valid JSON using the required schema.`
+${t(settings, "promptRetry")}`
     })
   });
 
@@ -254,11 +256,11 @@ async function retryOpenAICompatibleJsonAnalysis(item, settings) {
         {
           role: "system",
           content:
-            "Return only valid JSON using the requested schema. Do not wrap the JSON in markdown."
+            t(settings, "promptSystemRetry")
         },
         {
           role: "user",
-          content: buildAnalysisPrompt(item)
+          content: buildAnalysisPrompt(item, settings)
         }
       ]
     })
@@ -329,10 +331,10 @@ async function checkOpenAICompatibleHealth(settings) {
   };
 }
 
-function buildAnalysisPrompt(item) {
+function buildAnalysisPrompt(item, settings = DEFAULT_SETTINGS) {
   return `You are PCFA, a local-first cognitive firewall assistant.
 
-Analyze only the observable text below. Do not decide political truth. Do not classify ideology. Separate disagreement from toxicity. Return JSON only.
+${t(settings, "promptInstructions")}
 
 Required JSON shape:
 {
@@ -358,25 +360,25 @@ Required JSON shape:
   "summary": "neutral one-sentence summary"
 }
 
-Visible platform: ${item.platform}
-Visible author handle: ${item.authorHandle || "unknown"}
-Visible text:
+${t(settings, "promptVisiblePlatform")}: ${item.platform}
+${t(settings, "promptVisibleAuthorHandle")}: ${item.authorHandle || t(settings, "promptUnknown")}
+${t(settings, "promptVisibleText")}:
 ${item.text}`;
 }
 
-function normalizeModelOutput(output) {
-  const heuristic = heuristicAnalysis({ text: "" });
+function normalizeModelOutput(output, settings = DEFAULT_SETTINGS) {
+  const heuristic = heuristicAnalysis({ text: "" }, settings);
   const scores = { ...heuristic.scores, ...(output?.scores || {}) };
 
   return {
     scores: normalizeScores(scores),
     confidence: clampNumber(output?.confidence, 0, 1, 0.45),
-    explanations: normalizeExplanations(output?.explanations),
+    explanations: normalizeExplanations(output?.explanations, settings),
     summary: typeof output?.summary === "string" ? output.summary.slice(0, 280) : ""
   };
 }
 
-function heuristicAnalysis(item) {
+function heuristicAnalysis(item, settings = DEFAULT_SETTINGS) {
   const text = normalizeText(item.text || "");
   const lower = text.toLowerCase();
   const words = text.split(/\s+/).filter(Boolean);
@@ -476,46 +478,46 @@ function heuristicAnalysis(item) {
       propagandaRisk,
       botSignal,
       coordinationRisk
-    }),
+    }, settings),
     summary: text ? summarizeText(text) : ""
   };
 }
 
-function buildHeuristicExplanations(scores) {
+function buildHeuristicExplanations(scores, settings = DEFAULT_SETTINGS) {
   const explanations = [];
   if (scores.toxicity >= 0.45) {
     explanations.push({
       category: "toxicity",
       contribution: "high",
-      reason: "The text contains direct insults or aggressive wording."
+      reason: t(settings, "heuristicToxicityReason")
     });
   }
   if (scores.anger >= 0.45) {
     explanations.push({
       category: "anger",
       contribution: "medium",
-      reason: "The text shows elevated emotional intensity through wording or punctuation."
+      reason: t(settings, "heuristicAngerReason")
     });
   }
   if (scores.evidencePresence >= 0.35) {
     explanations.push({
       category: "evidence",
       contribution: "medium",
-      reason: "The text includes visible source, data, report, or link signals."
+      reason: t(settings, "heuristicEvidenceReason")
     });
   }
   if (scores.informationDensity < 0.25) {
     explanations.push({
       category: "informationDensity",
       contribution: "low",
-      reason: "The text has limited observable evidence or argument structure."
+      reason: t(settings, "heuristicInformationDensityReason")
     });
   }
   if (scores.propagandaRisk >= 0.35) {
     explanations.push({
       category: "propagandaRisk",
       contribution: "medium",
-      reason: "The text resembles slogan-like or emotionally amplifying framing."
+      reason: t(settings, "heuristicPropagandaReason")
     });
   }
   return explanations.length
@@ -524,7 +526,7 @@ function buildHeuristicExplanations(scores) {
         {
           category: "overall",
           contribution: "low",
-          reason: "No strong manipulation or toxicity signals were detected by the local heuristic."
+          reason: t(settings, "heuristicOverallReason")
         }
       ];
 }
@@ -551,7 +553,8 @@ async function updateSettings(nextSettings = {}) {
     ),
     openaiApiKey: String(nextSettings.openaiApiKey ?? current.openaiApiKey ?? "").trim(),
     toxicityThreshold: clampNumber(nextSettings.toxicityThreshold, 0, 1, current.toxicityThreshold),
-    retentionDays: Math.round(clampNumber(nextSettings.retentionDays, 1, 365, current.retentionDays))
+    retentionDays: Math.round(clampNumber(nextSettings.retentionDays, 1, 365, current.retentionDays)),
+    language: normalizeLanguageSetting(nextSettings.language || current.language)
   };
   await chrome.storage.local.set({ settings });
   return settings;
@@ -687,13 +690,13 @@ function normalizeScores(scores) {
   };
 }
 
-function normalizeExplanations(explanations) {
+function normalizeExplanations(explanations, settings = DEFAULT_SETTINGS) {
   if (!Array.isArray(explanations)) {
     return [
       {
         category: "overall",
         contribution: "low",
-        reason: "The local model did not return detailed explanations."
+        reason: t(settings, "modelExplanationFallback")
       }
     ];
   }
@@ -701,7 +704,7 @@ function normalizeExplanations(explanations) {
   return explanations.slice(0, 6).map((item) => ({
     category: String(item.category || "overall").slice(0, 40),
     contribution: ["low", "medium", "high"].includes(item.contribution) ? item.contribution : "medium",
-    reason: String(item.reason || "Observable signal contributed to this estimate.").slice(0, 180)
+    reason: String(item.reason || t(settings, "modelReasonFallback")).slice(0, 180)
   }));
 }
 
@@ -735,6 +738,10 @@ function buildOpenAIHeaders(settings) {
 
 function normalizeProvider(provider) {
   return provider === "openai-compatible" ? "openai-compatible" : "ollama";
+}
+
+function normalizeLanguageSetting(language) {
+  return ["auto", "en", "zh-TW"].includes(language) ? language : DEFAULT_SETTINGS.language;
 }
 
 function normalizeOpenAIBaseUrlSetting(value) {
@@ -787,4 +794,12 @@ function clampNumber(value, min, max, fallback) {
 
 function clamp01(value) {
   return Math.round(clampNumber(value, 0, 1, 0) * 100) / 100;
+}
+
+function t(settings, key, values) {
+  const language = globalThis.PCFA_I18N.resolveLanguage(
+    settings?.language || DEFAULT_SETTINGS.language,
+    globalThis.PCFA_I18N.browserLanguage()
+  );
+  return globalThis.PCFA_I18N.createTranslator(language).t(key, values);
 }

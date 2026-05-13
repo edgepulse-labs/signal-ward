@@ -56,6 +56,7 @@ export interface Settings {
   analysisMode: "ollama" | "heuristic";
   storeRawText: boolean;
   retentionDays: number;
+  language: "auto" | "en" | "zh-TW";
 }
 
 export interface DailyRollup {

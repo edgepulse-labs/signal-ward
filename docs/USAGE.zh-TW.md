@@ -39,13 +39,14 @@ Side panel 會顯示：
 
 可用設定：
 
+- 語言：依瀏覽器自動選擇、English，或繁體中文。
 - Ollama model：送往 Ollama 的本機模型名稱。
 - Collapse threshold：貼文被摺疊的分數門檻。
 - Use heuristic mode only：停用 Ollama 呼叫，只使用本機 keyword heuristic。
 - Store raw visible text locally：將原始可見貼文文字儲存在本機 Chrome extension storage。
 - Retention days：在指定天數後清除本機保存的 scores 與 daily rollups。
 
-調整控制項後，請點選 "Save settings"。
+調整控制項後，請點選「儲存設定」。語言變更會立即套用到面板，並在儲存設定後保留。
 
 ## 閱讀 Daily Rollups
 

@@ -1,0 +1,14 @@
+{
+  "appName": {
+    "message": "個人認知防火牆助理"
+  },
+  "appShortName": {
+    "message": "PCFA"
+  },
+  "appDescription": {
+    "message": "針對可見社群動態的本機優先認知防火牆。"
+  },
+  "actionTitle": {
+    "message": "PCFA"
+  }
+}
