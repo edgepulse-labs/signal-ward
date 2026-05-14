@@ -5,8 +5,9 @@ This guide covers local installation for the MVP Chrome / Chromium extension.
 ## Requirements
 
 - Chrome or Chromium with extension developer mode available.
+- WebGPU-enabled browser profile for the default WebLLM model provider.
 - Node.js 18 or newer for local validation commands.
-- Optional: Ollama for local model analysis.
+- Optional: Ollama for local server model analysis.
 
 PCFA does not require npm dependencies for the current MVP.
 
@@ -39,9 +40,22 @@ The command validates:
 6. Confirm that "Personal Cognitive Firewall Assistant" appears in the extension list.
 7. Pin the extension if you want faster side panel access.
 
+## Configure WebLLM
+
+WebLLM is the default provider. On first use, PCFA downloads the selected WebLLM model into the browser cache and runs analysis in the browser through WebGPU. Open the PCFA side panel and click "Check" in the provider status row to warm up the model.
+
+Default WebLLM settings:
+
+- Provider: `webllm`
+- Model: `Llama-3.2-1B-Instruct-q4f16_1-MLC`
+- Temperature: `0`
+- Max tokens: `700`
+
+If WebLLM or the selected provider is unavailable, PCFA uses the built-in local heuristic scorer.
+
 ## Configure Ollama
 
-Ollama is optional. If it is unavailable, PCFA uses the built-in local heuristic scorer.
+Ollama is optional.
 
 Install and start Ollama, then pull the default model:
 
@@ -56,11 +70,11 @@ PCFA sends local model requests to:
 http://localhost:11434
 ```
 
-Open the PCFA side panel and click "Check" in the Ollama status row to verify the connection.
+Open the PCFA side panel, choose provider `ollama`, and click "Check" in the provider status row to verify the connection.
 
 ## LM Studio or OpenAI-Compatible Servers
 
-PCFA can use Ollama, a local OpenAI-compatible server, or an explicitly approved OpenAI-compatible endpoint. Ollama calls:
+PCFA can use WebLLM by default, Ollama, a local OpenAI-compatible server, or an explicitly approved OpenAI-compatible endpoint. Ollama calls:
 
 ```text
 http://localhost:11434/api/generate
@@ -97,9 +111,10 @@ PCFA currently sends analysis through `/v1/chat/completions` and checks health t
 
 ## Recommended First Settings
 
-- Ollama model: `llama3.2`
+- Provider: `webllm`
+- WebLLM model: `Llama-3.2-1B-Instruct-q4f16_1-MLC`
 - Collapse threshold: `72%`
-- Heuristic-only mode: off, unless you do not want Ollama calls.
+- Heuristic-only mode: off, unless you do not want model calls.
 - Store raw visible text locally: off.
 
 Raw visible text storage is disabled by default. Scores and minimal item metadata are stored in `chrome.storage.local`.

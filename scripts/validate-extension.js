@@ -100,8 +100,14 @@ const formattedFiles = [
 ];
 
 for (const file of jsFiles) {
-  const result = spawnSync(process.execPath, ["--check", path.join(root, file)], {
-    encoding: "utf8"
+  const checkArgs = file === "src/background.js" && manifest.background?.type === "module"
+    ? ["--input-type=module", "--check"]
+    : ["--check", path.join(root, file)];
+  const result = spawnSync(process.execPath, checkArgs, {
+    encoding: "utf8",
+    input: file === "src/background.js" && manifest.background?.type === "module"
+      ? fs.readFileSync(path.join(root, file), "utf8")
+      : undefined
   });
 
   if (result.status !== 0) {

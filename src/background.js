@@ -1,13 +1,18 @@
-importScripts("i18n.js");
-importScripts("settings.js");
+import "./i18n.js";
+import "./settings.js";
+import * as packagedWebLlm from "../vendor/web-llm/index.js";
 
 const DEFAULT_SETTINGS = {
-  model: "llama3.2",
-  modelProvider: "ollama",
+  model: "Llama-3.2-1B-Instruct-q4f16_1-MLC",
+  modelProvider: "webllm",
   openaiBaseUrl: "http://localhost:1234/v1",
   openaiApiKey: "lm-studio",
+  webLlmTemperature: 0,
+  webLlmMaxTokens: 700,
   toxicityThreshold: 0.72,
-  analysisMode: "ollama",
+  angerThreshold: 0.8,
+  collapseAds: false,
+  analysisMode: "model",
   storeRawText: false,
   modelDebugMode: false,
   shareStatsWithServer: false,
@@ -29,6 +34,18 @@ const DEFAULT_METRICS = {
 const DEFAULT_DAILY_ROLLUPS = {};
 const OLLAMA_GENERATE_URL = "http://localhost:11434/api/generate";
 const OLLAMA_TAGS_URL = "http://localhost:11434/api/tags";
+const ANALYSIS_PROMPT_VERSION = 3;
+const DEFAULT_WEBLLM_MODEL = DEFAULT_SETTINGS.model;
+let webLlmEnginePromise = null;
+let webLlmEngineModel = "";
+let webLlmLastStatus = {
+  available: false,
+  ready: false,
+  model: DEFAULT_WEBLLM_MODEL,
+  progressPercent: null,
+  progressText: "WebLLM has not been loaded yet.",
+  error: ""
+};
 
 chrome.runtime.onInstalled.addListener(async () => {
   const existing = await chrome.storage.local.get([
@@ -99,6 +116,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "PCFA_GET_MODEL_OPTIONS") {
+    getModelOptions(message.settings)
+      .then((modelOptions) => sendResponse({ ok: true, modelOptions }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   return false;
 });
 
@@ -124,6 +148,7 @@ async function analyzeAndStore(item, options = {}) {
     itemId: item.id,
     platform: item.platform,
     model: analysis.model,
+    analysisPromptVersion: ANALYSIS_PROMPT_VERSION,
     analyzedAt: new Date().toISOString(),
     scores: analysis.scores,
     confidence: analysis.confidence,
@@ -177,6 +202,9 @@ function canUseCachedScore(score, settings) {
   if (requestedSource !== "heuristic" && score.model !== (settings.model || DEFAULT_SETTINGS.model)) {
     return false;
   }
+  if (requestedSource !== "heuristic" && score.analysisPromptVersion !== ANALYSIS_PROMPT_VERSION) {
+    return false;
+  }
   return true;
 }
 
@@ -189,15 +217,17 @@ function desiredAnalysisSource(settings) {
 
 async function analyzeWithOllama(item, settings) {
   const trace = createModelDebugTrace("ollama", settings);
+  const body = {
+    model: settings.model || DEFAULT_SETTINGS.model,
+    stream: false,
+    format: "json",
+    prompt: buildAnalysisPrompt(item, settings)
+  };
+  trace.request = createDebugRequestSnapshot("POST", OLLAMA_GENERATE_URL, body);
   const response = await fetch(OLLAMA_GENERATE_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: settings.model || DEFAULT_SETTINGS.model,
-      stream: false,
-      format: "json",
-      prompt: buildAnalysisPrompt(item, settings)
-    })
+    body: JSON.stringify(body)
   });
 
   if (!response.ok) {
@@ -214,7 +244,12 @@ async function analyzeWithOllama(item, settings) {
   trace.httpStatus = response.status;
   trace.rawMessageContent = truncateDebugText(data.response);
   let parsed = safeJsonParse(data.response);
-  trace.parseStatus = parsed ? "parsed" : "retrying";
+  if (isSchemaEchoModelOutput(parsed)) {
+    parsed = null;
+    trace.parseStatus = "schema-echo";
+  } else {
+    trace.parseStatus = parsed ? "parsed" : "retrying";
+  }
   if (!parsed) {
     try {
       parsed = await retryOllamaJsonAnalysis(item, settings);
@@ -244,16 +279,20 @@ async function analyzeWithOllama(item, settings) {
 }
 
 async function analyzeWithModelProvider(item, settings) {
-  if ((settings.modelProvider || DEFAULT_SETTINGS.modelProvider) === "openai-compatible") {
+  const provider = settings.modelProvider || DEFAULT_SETTINGS.modelProvider;
+  if (provider === "webllm") {
+    return analyzeWithWebLlm(item, settings);
+  }
+  if (provider === "openai-compatible") {
     return analyzeWithOpenAICompatible(item, settings);
   }
   return analyzeWithOllama(item, settings);
 }
 
-async function analyzeWithOpenAICompatible(item, settings) {
-  const baseUrl = normalizeLocalOpenAIBaseUrl(settings.openaiBaseUrl);
-  const trace = createModelDebugTrace("openai-compatible", settings, `${baseUrl}/chat/completions`);
-  let response = await fetchOpenAICompatibleChatCompletion(baseUrl, settings, [
+async function analyzeWithWebLlm(item, settings) {
+  const trace = createModelDebugTrace("webllm", settings, "browser-local WebGPU");
+  const engine = await ensureWebLlmEngine(settings);
+  const messages = [
     {
       role: "system",
       content: t(settings, "promptSystem")
@@ -262,11 +301,158 @@ async function analyzeWithOpenAICompatible(item, settings) {
       role: "user",
       content: buildAnalysisPrompt(item, settings)
     }
-  ], true);
+  ];
+  const request = {
+    messages,
+    temperature: Number(settings.webLlmTemperature ?? DEFAULT_SETTINGS.webLlmTemperature),
+    max_tokens: Number(settings.webLlmMaxTokens ?? DEFAULT_SETTINGS.webLlmMaxTokens)
+  };
+  trace.request = createDebugRequestSnapshot("webllm.chat.completions.create", trace.endpoint, request);
+  let response;
+  try {
+    response = await engine.chat.completions.create(request);
+  } catch (error) {
+    await recordModelDebugTrace(settings, {
+      ...trace,
+      ok: false,
+      error: error.message
+    });
+    throw error;
+  }
+
+  const rawContent = response?.choices?.[0]?.message?.content;
+  trace.rawMessageContent = truncateDebugText(rawContent);
+  trace.rawResponseShape = summarizeResponseShape(response);
+  let parsed = safeJsonParse(rawContent);
+  if (isSchemaEchoModelOutput(parsed)) {
+    parsed = null;
+    trace.parseStatus = "schema-echo";
+  } else {
+    trace.parseStatus = parsed ? "parsed" : "retrying";
+  }
+  if (!parsed) {
+    try {
+      parsed = await retryWebLlmJsonAnalysis(item, settings);
+      trace.retryParsed = true;
+    } catch (error) {
+      await recordModelDebugTrace(settings, {
+        ...trace,
+        ok: false,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+  const normalized = normalizeModelOutput(parsed, settings, item);
+  await recordModelDebugTrace(settings, {
+    ...trace,
+    ok: true,
+    parsed,
+    normalized: createNormalizedDebugSnapshot(normalized)
+  });
+
+  return {
+    model: settings.model || DEFAULT_SETTINGS.model,
+    source: "webllm",
+    ...normalized
+  };
+}
+
+async function ensureWebLlmEngine(settings) {
+  const model = settings.model || DEFAULT_WEBLLM_MODEL;
+  if (webLlmEnginePromise && webLlmEngineModel === model) {
+    return webLlmEnginePromise;
+  }
+
+  webLlmEngineModel = model;
+  webLlmLastStatus = {
+    available: true,
+    ready: false,
+    model,
+    progressPercent: 0,
+    progressText: "Loading WebLLM runtime...",
+    error: ""
+  };
+  broadcastWebLlmStatus();
+
+  webLlmEnginePromise = (async () => {
+    if (!navigator?.gpu) {
+      throw new Error("WebGPU is unavailable in this browser profile.");
+    }
+
+    if (typeof packagedWebLlm.CreateMLCEngine !== "function") {
+      throw new Error("Packaged WebLLM module does not export CreateMLCEngine.");
+    }
+
+    const appConfig = packagedWebLlm.prebuiltAppConfig
+      ? { ...packagedWebLlm.prebuiltAppConfig, cacheBackend: "indexeddb" }
+      : { cacheBackend: "indexeddb" };
+    const engine = await packagedWebLlm.CreateMLCEngine(model, {
+      appConfig,
+      initProgressCallback: (progress) => {
+        const progressText = progress?.text || (progress ? JSON.stringify(progress) : "Loading model...");
+        webLlmLastStatus = {
+          available: true,
+          ready: false,
+          model,
+          progressPercent: normalizeWebLlmProgressPercent(progress),
+          progressText,
+          error: ""
+        };
+        broadcastWebLlmStatus();
+      }
+    });
+
+    webLlmLastStatus = {
+      available: true,
+      ready: true,
+      model,
+      progressPercent: 100,
+      progressText: "WebLLM model is ready.",
+      error: ""
+    };
+    broadcastWebLlmStatus();
+    return engine;
+  })().catch((error) => {
+    webLlmLastStatus = {
+      available: false,
+      ready: false,
+      model,
+      progressPercent: null,
+      progressText: "WebLLM unavailable; local heuristic fallback will be used.",
+      error: String(error?.message || error)
+    };
+    webLlmEnginePromise = null;
+    broadcastWebLlmStatus();
+    throw error;
+  });
+
+  return webLlmEnginePromise;
+}
+
+async function analyzeWithOpenAICompatible(item, settings) {
+  const baseUrl = normalizeLocalOpenAIBaseUrl(settings.openaiBaseUrl);
+  const trace = createModelDebugTrace("openai-compatible", settings, `${baseUrl}/chat/completions`);
+  const messages = [
+    {
+      role: "system",
+      content: t(settings, "promptSystem")
+    },
+    {
+      role: "user",
+      content: buildAnalysisPrompt(item, settings)
+    }
+  ];
+  trace.request = createDebugRequestSnapshot(
+    "POST",
+    `${baseUrl}/chat/completions`,
+    buildOpenAICompatibleChatCompletionBody(settings, messages, true)
+  );
+  let response = await fetchOpenAICompatibleChatCompletion(baseUrl, settings, messages, true);
 
   if (!response.ok && response.status >= 400 && response.status < 500) {
     trace.firstHttpStatus = response.status;
-    response = await fetchOpenAICompatibleChatCompletion(baseUrl, settings, [
+    const retryMessages = [
       {
         role: "system",
         content: t(settings, "promptSystem")
@@ -275,7 +461,13 @@ async function analyzeWithOpenAICompatible(item, settings) {
         role: "user",
         content: buildAnalysisPrompt(item, settings)
       }
-    ], false);
+    ];
+    trace.retryRequest = createDebugRequestSnapshot(
+      "POST",
+      `${baseUrl}/chat/completions`,
+      buildOpenAICompatibleChatCompletionBody(settings, retryMessages, false)
+    );
+    response = await fetchOpenAICompatibleChatCompletion(baseUrl, settings, retryMessages, false);
   }
 
   if (!response.ok) {
@@ -294,7 +486,12 @@ async function analyzeWithOpenAICompatible(item, settings) {
   trace.rawMessageContent = truncateDebugText(rawContent);
   trace.rawResponseShape = summarizeResponseShape(data);
   let parsed = safeJsonParse(rawContent);
-  trace.parseStatus = parsed ? "parsed" : "retrying";
+  if (isSchemaEchoModelOutput(parsed)) {
+    parsed = null;
+    trace.parseStatus = "schema-echo";
+  } else {
+    trace.parseStatus = parsed ? "parsed" : "retrying";
+  }
   if (!parsed) {
     try {
       parsed = await retryOpenAICompatibleJsonAnalysis(item, settings);
@@ -343,7 +540,7 @@ ${t(settings, "promptRetry")}`
 
   const data = await response.json();
   const parsed = safeJsonParse(data.response);
-  if (!parsed) {
+  if (!parsed || isSchemaEchoModelOutput(parsed)) {
     throw new Error("Ollama returned malformed JSON.");
   }
   return parsed;
@@ -368,13 +565,47 @@ async function retryOpenAICompatibleJsonAnalysis(item, settings) {
 
   const data = await response.json();
   const parsed = safeJsonParse(data.choices?.[0]?.message?.content);
-  if (!parsed) {
+  if (!parsed || isSchemaEchoModelOutput(parsed)) {
     throw new Error("OpenAI-compatible provider returned malformed JSON.");
   }
   return parsed;
 }
 
+async function retryWebLlmJsonAnalysis(item, settings) {
+  const engine = await ensureWebLlmEngine(settings);
+  const response = await engine.chat.completions.create({
+    messages: [
+      {
+        role: "system",
+        content: t(settings, "promptSystemRetry")
+      },
+      {
+        role: "user",
+        content: `${buildAnalysisPrompt(item, settings)}
+
+${t(settings, "promptRetry")}`
+      }
+    ],
+    temperature: 0,
+    max_tokens: Number(settings.webLlmMaxTokens ?? DEFAULT_SETTINGS.webLlmMaxTokens)
+  });
+  const parsed = safeJsonParse(response?.choices?.[0]?.message?.content);
+  if (!parsed || isSchemaEchoModelOutput(parsed)) {
+    throw new Error("WebLLM returned malformed JSON.");
+  }
+  return parsed;
+}
+
 async function fetchOpenAICompatibleChatCompletion(baseUrl, settings, messages, useJsonResponseFormat) {
+  const body = buildOpenAICompatibleChatCompletionBody(settings, messages, useJsonResponseFormat);
+  return fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: buildOpenAIHeaders(settings),
+    body: JSON.stringify(body)
+  });
+}
+
+function buildOpenAICompatibleChatCompletionBody(settings, messages, useJsonResponseFormat) {
   const body = {
     model: settings.model || DEFAULT_SETTINGS.model,
     temperature: 0,
@@ -390,11 +621,7 @@ async function fetchOpenAICompatibleChatCompletion(baseUrl, settings, messages, 
       }
     };
   }
-  return fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: buildOpenAIHeaders(settings),
-    body: JSON.stringify(body)
-  });
+  return body;
 }
 
 function analysisJsonSchema() {
@@ -464,10 +691,31 @@ function analysisJsonSchema() {
 async function checkModelProviderHealth(nextSettings = {}) {
   const current = (await chrome.storage.local.get("settings")).settings || {};
   const settings = { ...DEFAULT_SETTINGS, ...current, ...(nextSettings || {}) };
-  if ((settings.modelProvider || DEFAULT_SETTINGS.modelProvider) === "openai-compatible") {
+  const provider = settings.modelProvider || DEFAULT_SETTINGS.modelProvider;
+  if (provider === "webllm") {
+    return checkWebLlmHealth(settings);
+  }
+  if (provider === "openai-compatible") {
     return checkOpenAICompatibleHealth(settings);
   }
   return checkOllamaHealth();
+}
+
+async function checkWebLlmHealth(settings) {
+  const startedAt = Date.now();
+  const model = settings.model || DEFAULT_WEBLLM_MODEL;
+  if (!navigator?.gpu) {
+    throw new Error("WebGPU is unavailable in this browser profile.");
+  }
+  await ensureWebLlmEngine(settings);
+  return {
+    available: webLlmLastStatus.ready,
+    provider: "webllm",
+    checkedAt: new Date().toISOString(),
+    latencyMs: Date.now() - startedAt,
+    models: getWebLlmModelOptions(model),
+    status: webLlmLastStatus
+  };
 }
 
 async function checkOllamaHealth() {
@@ -479,7 +727,7 @@ async function checkOllamaHealth() {
 
   const data = await response.json();
   const models = Array.isArray(data.models)
-    ? data.models.map((model) => model.name).filter(Boolean).slice(0, 12)
+    ? data.models.map((model) => model.name).filter(Boolean).slice(0, 50)
     : [];
   return {
     available: true,
@@ -503,7 +751,7 @@ async function checkOpenAICompatibleHealth(settings) {
 
   const data = await response.json();
   const models = Array.isArray(data.data)
-    ? data.data.map((model) => model.id).filter(Boolean).slice(0, 12)
+    ? data.data.map((model) => model.id).filter(Boolean).slice(0, 50)
     : [];
   return {
     available: true,
@@ -514,53 +762,70 @@ async function checkOpenAICompatibleHealth(settings) {
   };
 }
 
+async function getModelOptions(nextSettings = {}) {
+  const current = (await chrome.storage.local.get("settings")).settings || {};
+  const settings = { ...DEFAULT_SETTINGS, ...current, ...(nextSettings || {}) };
+  const provider = settings.modelProvider || DEFAULT_SETTINGS.modelProvider;
+  if (provider === "webllm") {
+    return {
+      provider,
+      models: getWebLlmModelOptions(settings.model || DEFAULT_WEBLLM_MODEL),
+      status: webLlmLastStatus
+    };
+  }
+
+  const health = await checkModelProviderHealth(settings);
+  return {
+    provider,
+    models: health.models || [],
+    status: health.status || null
+  };
+}
+
+function getWebLlmModelOptions(preferredModel = DEFAULT_WEBLLM_MODEL) {
+  const models = Array.isArray(packagedWebLlm.prebuiltAppConfig?.model_list)
+    ? packagedWebLlm.prebuiltAppConfig.model_list.map((record) => record.model_id).filter(Boolean)
+    : [];
+  return Array.from(new Set([preferredModel, DEFAULT_WEBLLM_MODEL, ...models].filter(Boolean))).slice(0, 120);
+}
+
 function buildAnalysisPrompt(item, settings = DEFAULT_SETTINGS) {
-  return `You are PCFA, a local-first cognitive firewall assistant.
+  return `Analyze this visible social feed item.
 
 ${t(settings, "promptInstructions")}
 
-Required JSON shape:
-{
-  "scores": {
-    "toxicity": 0.0,
-    "anger": 0.0,
-    "fear": 0.0,
-    "hostility": 0.0,
-    "informationDensity": 0.0,
-    "evidencePresence": 0.0,
-    "propagandaRisk": 0.0,
-    "botSignal": 0.0,
-    "coordinationRisk": 0.0
-  },
-  "confidence": 0.0,
-  "classification": {
-    "primary": "ad|propaganda|chitchat|informational|opinion|unknown",
-    "confidence": 0.0
-  },
-  "explanations": [
-    {
-      "category": "toxicity",
-      "contribution": "low",
-      "reason": "short observable reason"
-    }
-  ],
-  "summary": "neutral one-sentence summary"
-}
+Visible item:
+- ${t(settings, "promptVisiblePlatform")}: ${item.platform}
+- ${t(settings, "promptVisibleAuthorHandle")}: ${item.authorHandle || t(settings, "promptUnknown")}
+- ${t(settings, "promptVisibleText")}: ${item.text}
 
-${t(settings, "promptVisiblePlatform")}: ${item.platform}
-${t(settings, "promptVisibleAuthorHandle")}: ${item.authorHandle || t(settings, "promptUnknown")}
-${t(settings, "promptVisibleText")}:
-${item.text}`;
+Return exactly one JSON object and no other text.
+Do not split the answer into multiple JSON objects.
+Use these top-level keys: scores, confidence, classification, explanations, summary.
+scores must contain numbers from 0 to 1 for toxicity, anger, fear, hostility, informationDensity, evidencePresence, propagandaRisk, botSignal, coordinationRisk.
+classification.primary must be exactly one of: ad, propaganda, chitchat, informational, opinion, unknown.
+Use unknown only when no other category is reasonably applicable. Short comparisons or personal takes are usually opinion, casual one-line posts are usually chitchat, and posts sharing concrete facts or links are usually informational.
+classification.confidence and confidence must be numbers from 0 to 1.
+explanations must be an array of 1 to 4 objects. Each object has category, contribution, reason.
+contribution must be exactly one of: low, medium, high.
+summary must be a short neutral summary of the actual visible item.
+Do not copy these instructions. Do not output placeholder text.`;
 }
 
 function normalizeModelOutput(output, settings = DEFAULT_SETTINGS, item = { text: "" }) {
   const heuristic = heuristicAnalysis(item, settings);
   const scores = { ...heuristic.scores, ...(output?.scores || {}) };
+  const classification = item?.platformSignals?.isConfirmedAd
+    ? { primary: "ad", confidence: 0.98 }
+    : normalizeClassification(
+        output?.classification,
+        inferClassificationFallback(output, heuristic, item)
+      );
 
   return {
     scores: normalizeScores(scores),
     confidence: clampNumber(output?.confidence, 0, 1, 0.45),
-    classification: normalizeClassification(output?.classification, heuristic.classification),
+    classification,
     explanations: normalizeExplanations(output?.explanations, settings),
     summary: typeof output?.summary === "string" ? output.summary.slice(0, 280) : ""
   };
@@ -824,7 +1089,11 @@ async function updateSettings(nextSettings = {}) {
       nextSettings.openaiBaseUrl ?? current.openaiBaseUrl
     ),
     openaiApiKey: String(nextSettings.openaiApiKey ?? current.openaiApiKey ?? "").trim(),
+    webLlmTemperature: clampNumber(nextSettings.webLlmTemperature, 0, 2, current.webLlmTemperature),
+    webLlmMaxTokens: Math.round(clampNumber(nextSettings.webLlmMaxTokens, 128, 4096, current.webLlmMaxTokens)),
     toxicityThreshold: clampNumber(nextSettings.toxicityThreshold, 0, 1, current.toxicityThreshold),
+    angerThreshold: clampNumber(nextSettings.angerThreshold, 0, 1, current.angerThreshold),
+    collapseAds: Boolean(nextSettings.collapseAds),
     retentionDays: Math.round(clampNumber(nextSettings.retentionDays, 1, 365, current.retentionDays)),
     modelDebugMode: Boolean(nextSettings.modelDebugMode),
     shareStatsWithServer: Boolean(nextSettings.shareStatsWithServer),
@@ -894,6 +1163,7 @@ function recomputeDailyRollups(scores, settings) {
       totalInformationDensity: 0,
       totalPropagandaRisk: 0,
       sources: {
+        webllm: 0,
         ollama: 0,
         openaiCompatible: 0,
         heuristic: 0
@@ -912,6 +1182,7 @@ function recomputeDailyRollups(scores, settings) {
       totalPropagandaRisk:
         existing.totalPropagandaRisk + Number(result.scores?.propagandaRisk || 0),
       sources: {
+        webllm: existing.sources.webllm + (result.source === "webllm" ? 1 : 0),
         ollama: existing.sources.ollama + (result.source === "ollama" ? 1 : 0),
         openaiCompatible:
           existing.sources.openaiCompatible + (result.source === "openai-compatible" ? 1 : 0),
@@ -949,6 +1220,7 @@ function updateDailyRollups(dailyRollups, result, settings) {
     totalInformationDensity: 0,
     totalPropagandaRisk: 0,
     sources: {
+      webllm: 0,
       ollama: 0,
       openaiCompatible: 0,
       heuristic: 0
@@ -970,6 +1242,7 @@ function updateDailyRollups(dailyRollups, result, settings) {
       totalInformationDensity: existing.totalInformationDensity + result.scores.informationDensity,
       totalPropagandaRisk: existing.totalPropagandaRisk + result.scores.propagandaRisk,
       sources: {
+        webllm: (existingSources.webllm || 0) + (result.source === "webllm" ? 1 : 0),
         ollama: (existingSources.ollama || 0) + (result.source === "ollama" ? 1 : 0),
         openaiCompatible:
           (existingSources.openaiCompatible || 0) +
@@ -1014,6 +1287,7 @@ function minimizeItem(item) {
     authorHandle: item.authorHandle,
     authorDisplayName: item.authorDisplayName,
     visibleLinks: item.visibleLinks || [],
+    platformSignals: item.platformSignals || {},
     observedAt: item.observedAt,
     extractionConfidence: item.extractionConfidence,
     textLength: item.text.length
@@ -1036,12 +1310,80 @@ function normalizeScores(scores) {
 
 function normalizeClassification(classification, fallback = { primary: "unknown", confidence: 0.3 }) {
   const primary = String(classification?.primary || fallback.primary || "unknown");
+  if (primary === "unknown" && fallback.primary && fallback.primary !== "unknown") {
+    return {
+      primary: fallback.primary,
+      confidence: Math.max(
+        clampNumber(classification?.confidence, 0, 1, 0),
+        clampNumber(fallback.confidence, 0, 1, 0.35)
+      )
+    };
+  }
   return {
     primary: ["ad", "propaganda", "chitchat", "informational", "opinion", "unknown"].includes(primary)
       ? primary
       : "unknown",
     confidence: clampNumber(classification?.confidence, 0, 1, fallback.confidence || 0.3)
   };
+}
+
+function inferClassificationFallback(output, heuristic, item) {
+  const text = normalizeText(item?.text || "").toLowerCase();
+  const explanationClass = inferClassificationFromExplanations(output?.explanations);
+  const heuristicPrimary = heuristic.classification?.primary || "unknown";
+
+  if (/\bvs\b|對決|比較|看法|認為|覺得|心得|觀點|opinion|take\b/.test(text)) {
+    return { primary: "opinion", confidence: 0.5 };
+  }
+  if (/\b(buy|sale|discount|promo|subscribe|trial|sponsored)\b|立即購買|優惠|訂閱|贊助/.test(text)) {
+    return { primary: "ad", confidence: 0.5 };
+  }
+  if (/https?:\/\/|source|study|report|data|來源|研究|報告|數據|根據/.test(text)) {
+    return { primary: "informational", confidence: 0.48 };
+  }
+  if (explanationClass && explanationClass !== "unknown") {
+    return { primary: explanationClass, confidence: 0.46 };
+  }
+  if (heuristicPrimary && heuristicPrimary !== "unknown") {
+    return heuristic.classification;
+  }
+  if (text.length > 0 && text.length < 80) {
+    return { primary: "chitchat", confidence: 0.4 };
+  }
+  return heuristic.classification || { primary: "unknown", confidence: 0.3 };
+}
+
+function inferClassificationFromExplanations(explanations) {
+  if (!Array.isArray(explanations)) {
+    return "";
+  }
+  const weights = { low: 1, medium: 2, high: 3 };
+  const totals = {};
+  for (const explanation of explanations) {
+    const category = String(explanation?.category || "");
+    if (!["ad", "propaganda", "chitchat", "informational", "opinion"].includes(category)) {
+      continue;
+    }
+    totals[category] = (totals[category] || 0) + (weights[explanation.contribution] || 1);
+  }
+  return Object.entries(totals).sort((left, right) => right[1] - left[1])[0]?.[0] || "";
+}
+
+function isSchemaEchoModelOutput(output) {
+  if (!output || typeof output !== "object") {
+    return false;
+  }
+
+  const primary = String(output.classification?.primary || "");
+  const summary = normalizeText(output.summary || "").toLowerCase();
+  const reasons = Array.isArray(output.explanations)
+    ? output.explanations.map((item) => normalizeText(item.reason || "").toLowerCase())
+    : [];
+  return (
+    primary.includes("|") ||
+    summary === "neutral one-sentence summary" ||
+    reasons.some((reason) => reason === "short observable reason")
+  );
 }
 
 function normalizeExplanations(explanations, settings = DEFAULT_SETTINGS) {
@@ -1055,7 +1397,7 @@ function normalizeExplanations(explanations, settings = DEFAULT_SETTINGS) {
     ];
   }
 
-  return explanations.slice(0, 6).map((item) => ({
+  return explanations.slice(0, 4).map((item) => ({
     category: String(item.category || "overall").slice(0, 40),
     contribution: ["low", "medium", "high"].includes(item.contribution) ? item.contribution : "medium",
     reason: String(item.reason || t(settings, "modelReasonFallback")).slice(0, 180)
@@ -1096,11 +1438,30 @@ function sanitizeDebugTrace(trace) {
     firstHttpStatus: trace.firstHttpStatus,
     parseStatus: trace.parseStatus,
     retryParsed: Boolean(trace.retryParsed),
+    request: sanitizeDebugPayload(trace.request, 9000),
+    retryRequest: sanitizeDebugPayload(trace.retryRequest, 9000),
     rawResponseShape: trace.rawResponseShape,
     rawMessageContent: truncateDebugText(trace.rawMessageContent),
     parsed: trace.parsed ? truncateDebugText(JSON.stringify(trace.parsed, null, 2), 5000) : "",
     normalized: trace.normalized || null,
     error: truncateDebugText(trace.error)
+  };
+}
+
+function createDebugRequestSnapshot(method, endpoint, body) {
+  return {
+    method,
+    endpoint,
+    body
+  };
+}
+
+function sanitizeDebugPayload(value, maxLength = 5000) {
+  if (!value) {
+    return null;
+  }
+  return safeJsonParse(truncateDebugText(JSON.stringify(value, null, 2), maxLength)) || {
+    truncatedText: truncateDebugText(String(value), maxLength)
   };
 }
 
@@ -1123,6 +1484,31 @@ function summarizeResponseShape(data) {
   };
 }
 
+function normalizeWebLlmProgressPercent(progress) {
+  const rawProgress = Number(progress?.progress);
+  if (Number.isFinite(rawProgress)) {
+    return Math.round(clampNumber(rawProgress, 0, 1, 0) * 100);
+  }
+  const percentFromText = String(progress?.text || "").match(/(\d+(?:\.\d+)?)\s*%/);
+  if (percentFromText) {
+    return Math.round(clampNumber(percentFromText[1], 0, 100, 0));
+  }
+  return webLlmLastStatus.progressPercent ?? 0;
+}
+
+function broadcastWebLlmStatus() {
+  try {
+    chrome.runtime.sendMessage({
+      type: "PCFA_WEBLLM_STATUS_CHANGED",
+      status: webLlmLastStatus
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+  } catch {
+    // Side panel may not be open while the model is warming up.
+  }
+}
+
 function safeJsonParse(value) {
   if (typeof value !== "string") {
     return null;
@@ -1137,9 +1523,101 @@ function safeJsonParse(value) {
     try {
       return JSON.parse(match[0]);
     } catch {
-      return null;
+      return repairAndParseModelJson(value);
     }
   }
+}
+
+function repairAndParseModelJson(value) {
+  const repairedCandidates = [
+    repairSplitSummaryObject(value),
+    repairAdjacentTopLevelObjects(value)
+  ].filter(Boolean);
+
+  for (const candidate of repairedCandidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // Try the next repair strategy.
+    }
+  }
+  return null;
+}
+
+function repairSplitSummaryObject(value) {
+  const text = stripMarkdownJsonFence(value);
+  if (!text.includes('"explanations"') || !text.includes('"summary"')) {
+    return "";
+  }
+
+  return text
+    .replace(
+      /("explanations"\s*:\s*\[[\s\S]*?)\n\s*\}\s*\n\s*\n\s*\{\s*"summary"\s*:/m,
+      '$1\n],\n"summary":'
+    )
+    .replace(/\}\s*$/, "}");
+}
+
+function repairAdjacentTopLevelObjects(value) {
+  const objects = extractTopLevelJsonObjectTexts(stripMarkdownJsonFence(value))
+    .map((text) => {
+      try {
+        return JSON.parse(text);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+  if (objects.length < 2) {
+    return "";
+  }
+  return JSON.stringify(Object.assign({}, ...objects));
+}
+
+function extractTopLevelJsonObjectTexts(value) {
+  const objects = [];
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = inString;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) {
+      continue;
+    }
+    if (char === "{") {
+      if (depth === 0) {
+        start = index;
+      }
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        objects.push(value.slice(start, index + 1));
+        start = -1;
+      }
+    }
+  }
+  return objects;
+}
+
+function stripMarkdownJsonFence(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "");
 }
 
 function buildOpenAIHeaders(settings) {
@@ -1152,7 +1630,7 @@ function buildOpenAIHeaders(settings) {
 }
 
 function normalizeProvider(provider) {
-  return provider === "openai-compatible" ? "openai-compatible" : "ollama";
+  return ["webllm", "ollama", "openai-compatible"].includes(provider) ? provider : "webllm";
 }
 
 function normalizeLanguageSetting(language) {

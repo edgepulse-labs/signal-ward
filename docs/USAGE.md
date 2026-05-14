@@ -42,9 +42,13 @@ The side panel shows:
 Available settings:
 
 - Language: automatic browser-language selection, English, or Traditional Chinese.
-- Ollama model: local model name sent to Ollama.
-- Collapse threshold: score level where posts are collapsed.
-- Use heuristic mode only: disables Ollama calls and uses local keyword heuristics.
+- Model provider: WebLLM by default, with Ollama and OpenAI-compatible providers available as user-selected options.
+- Model: WebLLM model id, Ollama model name, or OpenAI-compatible model id.
+- WebLLM temperature / max tokens: browser-local inference parameters.
+- Toxicity collapse threshold: toxicity score where posts are collapsed by default.
+- Anger collapse threshold: anger score where posts are collapsed by default.
+- Collapse confirmed ads by default: collapses posts that the platform already labels as ads.
+- Use heuristic mode only: disables model calls and uses local keyword heuristics.
 - Store raw visible text locally: stores raw visible post text in local Chrome extension storage.
 - Store model debug traces locally: records recent raw model responses, parsed JSON, normalized scores, and fallback errors for debugging.
 - Help publish anonymous statistics to a server: opt-in cloud collaboration setting, off by default.
@@ -57,7 +61,7 @@ Cloud collaboration settings are disabled by default. They should only send or r
 
 ## Debug Model Responses
 
-If OpenAI-compatible or Ollama analysis appears to return all-zero scores, enable "Store model debug traces locally", save settings, reload the feed, and inspect the Model Debug panel.
+If WebLLM, OpenAI-compatible, or Ollama analysis appears to return all-zero scores, enable "Store model debug traces locally", save settings, reload the feed, and inspect the Model Debug panel.
 
 The debug panel shows:
 
@@ -71,15 +75,15 @@ Debug traces are stored only in local extension storage and can be cleared from 
 
 ## Read Daily Rollups
 
-The Daily Rollup panel summarizes today's local activity, including analyzed item count, high-toxicity count, average emotional exposure estimate, average propaganda-risk estimate, and the split between Ollama and heuristic scoring.
+The Daily Rollup panel summarizes today's local activity, including analyzed item count, high-toxicity count, average emotional exposure estimate, average propaganda-risk estimate, and the split between WebLLM, Ollama, OpenAI-compatible, and heuristic scoring.
 
-## Check Ollama
+## Check Model Provider
 
-In the side panel, click "Check" in the Ollama status row. PCFA calls the local Ollama tags endpoint and reports availability, latency, and model names when available.
+In the side panel, click "Check" in the provider status row. For WebLLM, PCFA loads the browser-local model and reports readiness. For Ollama, PCFA calls the local tags endpoint and reports availability, latency, and model names when available.
 
-If Ollama fails, analysis automatically falls back to local heuristic scoring unless heuristic-only mode is already enabled.
+If the selected provider fails, analysis automatically falls back to local heuristic scoring unless heuristic-only mode is already enabled.
 
-LM Studio and other OpenAI-compatible local servers are selectable from the Model provider control. Use a local base URL such as `http://localhost:1234/v1`. Only explicitly allowlisted remote OpenAI-compatible origins are accepted; other remote provider URLs are rejected to preserve the local-first privacy boundary.
+LM Studio, custom cloud model gateways, and other OpenAI-compatible servers are selectable from the Model provider control. Use a local base URL such as `http://localhost:1234/v1` for local servers. Only explicitly allowlisted remote OpenAI-compatible origins are accepted; other remote provider URLs are rejected to preserve the local-first privacy boundary.
 
 ## Clear Local Data
 

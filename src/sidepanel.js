@@ -7,11 +7,20 @@ const elements = {
   language: document.querySelector("#language"),
   modelProvider: document.querySelector("#modelProvider"),
   model: document.querySelector("#model"),
+  modelOptions: document.querySelector("#modelOptions"),
+  webLlmProgressWrap: document.querySelector("#webLlmProgressWrap"),
+  webLlmProgress: document.querySelector("#webLlmProgress"),
+  webLlmProgressText: document.querySelector("#webLlmProgressText"),
+  webLlmTemperature: document.querySelector("#webLlmTemperature"),
+  webLlmMaxTokens: document.querySelector("#webLlmMaxTokens"),
   openaiBaseUrl: document.querySelector("#openaiBaseUrl"),
   openaiApiKey: document.querySelector("#openaiApiKey"),
   toxicityThreshold: document.querySelector("#toxicityThreshold"),
   thresholdValue: document.querySelector("#thresholdValue"),
+  angerThreshold: document.querySelector("#angerThreshold"),
+  angerThresholdValue: document.querySelector("#angerThresholdValue"),
   retentionDays: document.querySelector("#retentionDays"),
+  collapseAds: document.querySelector("#collapseAds"),
   analysisMode: document.querySelector("#analysisMode"),
   storeRawText: document.querySelector("#storeRawText"),
   modelDebugMode: document.querySelector("#modelDebugMode"),
@@ -31,16 +40,25 @@ const elements = {
 };
 const i18n = globalThis.PCFA_I18N;
 let translator = i18n.createTranslator(i18n.AUTO_LANGUAGE);
+let webLlmStatusPoll = null;
 
 document.addEventListener("DOMContentLoaded", init);
 elements.toxicityThreshold.addEventListener("input", () => {
   elements.thresholdValue.textContent = formatPercent(Number(elements.toxicityThreshold.value));
 });
+elements.angerThreshold.addEventListener("input", () => {
+  elements.angerThresholdValue.textContent = formatPercent(Number(elements.angerThreshold.value));
+});
 elements.saveSettings.addEventListener("click", saveSettings);
 elements.clearData.addEventListener("click", clearData);
 elements.clearModelDebug.addEventListener("click", clearModelDebug);
 elements.checkOllama.addEventListener("click", checkOllama);
-elements.modelProvider.addEventListener("change", syncProviderControls);
+elements.modelProvider.addEventListener("change", () => {
+  const provider = elements.modelProvider.value;
+  elements.model.value = defaultModelForProvider(provider);
+  syncProviderControls();
+  loadModelOptions();
+});
 elements.language.addEventListener("change", () => {
   applyLanguage(elements.language.value);
 });
@@ -48,6 +66,12 @@ elements.language.addEventListener("change", () => {
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "local" && (changes.metrics || changes.scores || changes.settings)) {
     refreshState();
+  }
+});
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === "PCFA_WEBLLM_STATUS_CHANGED") {
+    renderWebLlmProgress(message.status);
   }
 });
 
@@ -72,7 +96,7 @@ function render(state) {
   const scores = Object.values(state.scores || {});
   const analyzed = metrics.postsAnalyzed || 0;
 
-  const provider = settings.modelProvider || "ollama";
+  const provider = settings.modelProvider || "webllm";
   applyLanguage(settings.language || "auto");
   elements.language.value = settings.language || "auto";
   elements.runtimeStatus.textContent =
@@ -82,18 +106,24 @@ function render(state) {
   elements.averageToxicity.textContent = formatPercent(analyzed ? metrics.totalToxicity / analyzed : 0);
   elements.averageInfo.textContent = formatPercent(analyzed ? metrics.totalInformationDensity / analyzed : 0);
   elements.modelProvider.value = provider;
-  elements.model.value = settings.model || (provider === "openai-compatible" ? "" : "llama3.2");
+  elements.model.value = settings.model || defaultModelForProvider(provider);
+  elements.webLlmTemperature.value = settings.webLlmTemperature ?? 0;
+  elements.webLlmMaxTokens.value = settings.webLlmMaxTokens ?? 700;
   elements.openaiBaseUrl.value = settings.openaiBaseUrl || "http://localhost:1234/v1";
   elements.openaiApiKey.value = settings.openaiApiKey || "lm-studio";
   elements.toxicityThreshold.value = settings.toxicityThreshold ?? 0.72;
   elements.thresholdValue.textContent = formatPercent(Number(elements.toxicityThreshold.value));
+  elements.angerThreshold.value = settings.angerThreshold ?? 0.8;
+  elements.angerThresholdValue.textContent = formatPercent(Number(elements.angerThreshold.value));
   elements.retentionDays.value = settings.retentionDays ?? 30;
+  elements.collapseAds.checked = Boolean(settings.collapseAds);
   elements.analysisMode.checked = settings.analysisMode === "heuristic";
   elements.storeRawText.checked = Boolean(settings.storeRawText);
   elements.modelDebugMode.checked = Boolean(settings.modelDebugMode);
   elements.shareStatsWithServer.checked = Boolean(settings.shareStatsWithServer);
   elements.enableCollectiveDefense.checked = Boolean(settings.enableCollectiveDefense);
   syncProviderControls();
+  loadModelOptions();
 
   renderRecent(scores);
   renderCategories(scores);
@@ -220,6 +250,7 @@ function renderDailyRollup(dailyRollups) {
     totalFear: 0,
     totalPropagandaRisk: 0,
     sources: {
+      webllm: 0,
       ollama: 0,
       heuristic: 0
     }
@@ -235,6 +266,7 @@ function renderDailyRollup(dailyRollups) {
       t("sources"),
       t("rollupSources", {
         ollama: rollup.sources?.ollama || 0,
+        webllm: rollup.sources?.webllm || 0,
         openai: rollup.sources?.openaiCompatible || 0,
         heuristic: rollup.sources?.heuristic || 0
       })
@@ -297,9 +329,113 @@ function renderModelDebug(traces) {
     const parsedTitle = document.createElement("strong");
     parsedTitle.textContent = t("debugParsedJson");
 
-    details.append(summary, meta, rawTitle, raw, parsedTitle, parsed);
+    details.append(
+      summary,
+      createDebugCopyActions(trace),
+      meta,
+      rawTitle,
+      raw,
+      parsedTitle,
+      parsed
+    );
     elements.modelDebugList.append(details);
   }
+}
+
+function createDebugCopyActions(trace) {
+  const actions = document.createElement("div");
+  actions.className = "debug-actions";
+  actions.append(
+    createDebugCopyButton(t("copyRequestButton"), () => debugRequestPayload(trace)),
+    createDebugCopyButton(t("copyResponseButton"), () => debugResponsePayload(trace)),
+    createDebugCopyButton(t("copyTraceButton"), () => debugFullPayload(trace))
+  );
+  return actions;
+}
+
+function createDebugCopyButton(label, payloadFactory) {
+  const button = document.createElement("button");
+  button.className = "secondary compact debug-copy";
+  button.type = "button";
+  button.textContent = label;
+  button.addEventListener("click", async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const originalLabel = button.textContent;
+    try {
+      await copyText(JSON.stringify(payloadFactory(), null, 2));
+      button.textContent = t("copiedButton");
+    } catch {
+      button.textContent = t("copyFailedButton");
+    } finally {
+      window.setTimeout(() => {
+        button.textContent = originalLabel;
+      }, 1200);
+    }
+  });
+  return button;
+}
+
+function debugRequestPayload(trace) {
+  return {
+    provider: trace.provider,
+    model: trace.model,
+    endpoint: trace.endpoint,
+    request: trace.request || null,
+    retryRequest: trace.retryRequest || null
+  };
+}
+
+function debugResponsePayload(trace) {
+  return {
+    provider: trace.provider,
+    model: trace.model,
+    ok: trace.ok,
+    httpStatus: trace.httpStatus,
+    firstHttpStatus: trace.firstHttpStatus,
+    parseStatus: trace.parseStatus,
+    retryParsed: trace.retryParsed,
+    rawResponseShape: trace.rawResponseShape || null,
+    rawMessageContent: trace.rawMessageContent || "",
+    parsed: parseDebugJsonText(trace.parsed),
+    normalized: trace.normalized || null,
+    error: trace.error || ""
+  };
+}
+
+function debugFullPayload(trace) {
+  return {
+    checkedAt: trace.checkedAt,
+    ...debugRequestPayload(trace),
+    response: debugResponsePayload(trace)
+  };
+}
+
+function parseDebugJsonText(value) {
+  if (!value) {
+    return null;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+async function copyText(value) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.style.position = "fixed";
+  textarea.style.inset = "0 auto auto 0";
+  textarea.style.opacity = "0";
+  document.body.append(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
 }
 
 function appendDebugRow(list, label, value) {
@@ -312,28 +448,117 @@ function appendDebugRow(list, label, value) {
 
 function checkOllama() {
   const settings = readSettingsForm();
-  const provider = settings.modelProvider || "ollama";
+  const provider = settings.modelProvider || "webllm";
   elements.ollamaStatus.textContent = t("checkingProvider", { provider: providerLabel(provider) });
   elements.ollamaDetail.textContent =
     provider === "openai-compatible"
       ? t("contactingUrl", { url: settings.openaiBaseUrl })
-      : t("contactingUrl", { url: "http://localhost:11434" });
+      : provider === "webllm"
+        ? t("checkingWebLlm")
+        : t("contactingUrl", { url: "http://localhost:11434" });
+  if (provider === "webllm") {
+    renderWebLlmProgress({ progressPercent: 0, ready: false, progressText: t("checkingWebLlm") });
+    startWebLlmStatusPolling(settings);
+  }
   chrome.runtime.sendMessage({ type: "PCFA_CHECK_OLLAMA", settings }, (response) => {
+    stopWebLlmStatusPolling();
     if (!response?.ok || !response.health?.available) {
       elements.ollamaStatus.textContent = t("providerUnavailable", { provider: providerLabel(provider) });
       elements.ollamaDetail.textContent = response?.error || t("localHealthCheckFailed");
+      renderWebLlmProgress(response?.health?.status || null);
       return;
     }
 
     const models = response.health.models || [];
+    updateModelOptions(models, settings.model);
     elements.ollamaStatus.textContent = t("providerAvailable", {
       provider: providerLabel(response.health.provider),
       latency: response.health.latencyMs
     });
-    elements.ollamaDetail.textContent = models.length
-      ? t("modelsList", { models: models.join(", ") })
-      : t("noLocalModels");
+    renderWebLlmProgress(response.health.status || null);
+    elements.ollamaDetail.textContent = modelListStatusText(provider, models);
   });
+}
+
+function loadModelOptions() {
+  const settings = readSettingsForm();
+  if (settings.modelProvider !== "webllm") {
+    updateModelOptions([settings.model].filter(Boolean), settings.model);
+    return;
+  }
+
+  chrome.runtime.sendMessage({ type: "PCFA_GET_MODEL_OPTIONS", settings }, (response) => {
+    if (!response?.ok) {
+      updateModelOptions([settings.model].filter(Boolean), settings.model);
+      return;
+    }
+    updateModelOptions(response.modelOptions?.models || [], settings.model);
+    renderWebLlmProgress(response.modelOptions?.status || null);
+  });
+}
+
+function updateModelOptions(models, selectedModel) {
+  const options = Array.from(new Set([selectedModel, ...models].filter(Boolean)));
+  elements.modelOptions.innerHTML = "";
+  for (const model of options) {
+    const option = document.createElement("option");
+    option.value = model;
+    elements.modelOptions.append(option);
+  }
+}
+
+function startWebLlmStatusPolling(settings) {
+  stopWebLlmStatusPolling();
+  webLlmStatusPoll = setInterval(() => {
+    chrome.runtime.sendMessage({ type: "PCFA_GET_MODEL_OPTIONS", settings }, (response) => {
+      if (!response?.ok) {
+        return;
+      }
+      const status = response.modelOptions?.status;
+      renderWebLlmProgress(status || null);
+      updateModelOptions(response.modelOptions?.models || [], settings.model);
+      if (status?.ready || status?.error) {
+        stopWebLlmStatusPolling();
+      }
+    });
+  }, 600);
+}
+
+function stopWebLlmStatusPolling() {
+  if (webLlmStatusPoll) {
+    clearInterval(webLlmStatusPoll);
+    webLlmStatusPoll = null;
+  }
+}
+
+function renderWebLlmProgress(status) {
+  if (elements.modelProvider.value !== "webllm" || !status || status.ready) {
+    elements.webLlmProgressWrap.hidden = true;
+    return;
+  }
+
+  const percent = Number.isFinite(Number(status.progressPercent))
+    ? Math.round(Number(status.progressPercent))
+    : 0;
+  elements.webLlmProgress.value = Math.max(0, Math.min(100, percent));
+  elements.webLlmProgressText.textContent = t("webLlmProgressPercent", { percent });
+  elements.webLlmProgressWrap.hidden = false;
+  if (status.progressText) {
+    elements.ollamaDetail.textContent = t("webLlmLoadingDetail", {
+      percent,
+      detail: status.progressText
+    });
+  }
+}
+
+function modelListStatusText(provider, models) {
+  if (!models.length) {
+    return provider === "webllm" ? t("webLlmReady") : t("noLocalModels");
+  }
+  if (provider === "webllm" && models.length > 8) {
+    return t("modelsFound", { count: models.length });
+  }
+  return t("modelsList", { models: models.join(", ") });
 }
 
 function saveSettings() {
@@ -344,13 +569,17 @@ function saveSettings() {
 function readSettingsForm() {
   const settings = {
     modelProvider: elements.modelProvider.value,
-    model: elements.model.value.trim() || "llama3.2",
+    model: elements.model.value.trim() || defaultModelForProvider(elements.modelProvider.value),
     openaiBaseUrl: elements.openaiBaseUrl.value.trim() || "http://localhost:1234/v1",
     openaiApiKey: elements.openaiApiKey.value.trim(),
+    webLlmTemperature: Number(elements.webLlmTemperature.value),
+    webLlmMaxTokens: Number(elements.webLlmMaxTokens.value),
     language: elements.language.value,
     toxicityThreshold: Number(elements.toxicityThreshold.value),
+    angerThreshold: Number(elements.angerThreshold.value),
     retentionDays: Number(elements.retentionDays.value),
-    analysisMode: elements.analysisMode.checked ? "heuristic" : "ollama",
+    collapseAds: elements.collapseAds.checked,
+    analysisMode: elements.analysisMode.checked ? "heuristic" : "model",
     storeRawText: elements.storeRawText.checked,
     modelDebugMode: elements.modelDebugMode.checked,
     shareStatsWithServer: elements.shareStatsWithServer.checked,
@@ -390,16 +619,28 @@ function averageEmotion(rollup) {
 
 function syncProviderControls() {
   const isOpenAICompatible = elements.modelProvider.value === "openai-compatible";
+  const isWebLlm = elements.modelProvider.value === "webllm";
   for (const element of document.querySelectorAll(".provider-openai")) {
     element.hidden = !isOpenAICompatible;
   }
+  for (const element of document.querySelectorAll(".provider-webllm")) {
+    element.hidden = !isWebLlm;
+  }
   elements.ollamaDetail.textContent = isOpenAICompatible
     ? t("verifyOpenAIEndpoint")
-    : t("verifyLocalhost");
+    : isWebLlm
+      ? t("verifyWebLlm")
+      : t("verifyLocalhost");
 }
 
 function providerLabel(provider) {
-  return provider === "openai-compatible" ? t("providerOpenAICompatible") : t("providerOllama");
+  if (provider === "openai-compatible") {
+    return t("providerOpenAICompatible");
+  }
+  if (provider === "ollama") {
+    return t("providerOllama");
+  }
+  return t("providerWebLlm");
 }
 
 function analysisEndpointLabel(settings) {
@@ -411,7 +652,17 @@ function analysisEndpointLabel(settings) {
       url: settings.openaiBaseUrl || "http://localhost:1234/v1"
     });
   }
-  return t("endpointOllamaFallback");
+  if (settings.modelProvider === "ollama") {
+    return t("endpointOllamaFallback");
+  }
+  return t("endpointWebLlmFallback");
+}
+
+function defaultModelForProvider(provider) {
+  if (provider === "webllm") {
+    return "Llama-3.2-1B-Instruct-q4f16_1-MLC";
+  }
+  return provider === "openai-compatible" ? "" : "llama3.2";
 }
 
 function cloudServicesLabel(settings) {

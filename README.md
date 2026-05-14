@@ -6,13 +6,14 @@ PCFA is not a censorship tool and does not decide political truth. It is an atte
 
 ## Current MVP
 
-This repository currently contains a dependency-free Chrome Manifest V3 prototype.
+This repository currently contains a Chrome Manifest V3 prototype with a packaged WebLLM runtime.
 
 Implemented:
 
 - visible post extraction for X and Threads,
-- analysis through Ollama, a local OpenAI-compatible server, or an approved OpenAI-compatible endpoint,
-- local heuristic fallback when Ollama is unavailable,
+- browser-local analysis through WebLLM by default,
+- optional analysis through Ollama, a local OpenAI-compatible server, or an approved OpenAI-compatible endpoint,
+- local heuristic fallback when the selected model runtime is unavailable,
 - toxicity, anger, information-density, propaganda-risk, bot-signal, and coordination-risk estimates,
 - reversible high-toxicity collapsing,
 - content annotations with explanations,
@@ -54,18 +55,20 @@ npm run build
 6. Open X or Threads and browse normally.
 7. Open the PCFA side panel from the extension toolbar.
 
-## Optional Local Model Setup
+## Local Model Setup
 
-PCFA defaults to the Ollama model name `llama3.2`.
+PCFA defaults to browser-local WebLLM with model `Llama-3.2-1B-Instruct-q4f16_1-MLC`. The first run downloads model assets into the browser cache and requires a Chrome / Chromium profile with WebGPU enabled.
+
+Ollama remains available as an optional local server provider:
 
 ```sh
 ollama serve
 ollama pull llama3.2
 ```
 
-If Ollama is unavailable, PCFA falls back to its built-in local heuristic scorer.
+If the selected model provider is unavailable, PCFA falls back to its built-in local heuristic scorer.
 
-For LM Studio or another OpenAI-compatible local server, choose `OpenAI-compatible` in the side panel and set the base URL, for example `http://localhost:1234/v1`. Approved remote OpenAI-compatible endpoints can also be used when explicitly allowlisted by the extension.
+For LM Studio, a custom cloud model gateway, or another OpenAI-compatible server, choose `OpenAI-compatible` in the side panel and set the base URL, for example `http://localhost:1234/v1`. Approved remote OpenAI-compatible endpoints can also be used when explicitly allowlisted by the extension.
 
 ## Privacy Boundary
 

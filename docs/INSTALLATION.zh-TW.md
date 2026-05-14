@@ -5,8 +5,9 @@
 ## 需求
 
 - 可啟用 extension developer mode 的 Chrome 或 Chromium。
+- 啟用 WebGPU 的瀏覽器 profile，用於預設 WebLLM 模型 provider。
 - Node.js 18 或更新版本，用來執行本機驗證指令。
-- 可選：Ollama，用於本機模型分析。
+- 可選：Ollama，用於本機 server 模型分析。
 
 目前 MVP 不需要安裝 npm dependencies。
 
@@ -39,9 +40,22 @@ npm run build
 6. 確認 extension 清單中出現 "Personal Cognitive Firewall Assistant"。
 7. 如需更快開啟 side panel，可將 extension 釘選到工具列。
 
+## 設定 WebLLM
+
+WebLLM 是預設 provider。第一次使用時，PCFA 會將所選 WebLLM 模型下載到瀏覽器快取，並透過 WebGPU 在瀏覽器本地端執行分析。開啟 PCFA side panel，點選 provider 狀態列中的 "Check" 可預先載入模型。
+
+預設 WebLLM 設定：
+
+- Provider：`webllm`
+- Model：`Llama-3.2-1B-Instruct-q4f16_1-MLC`
+- Temperature：`0`
+- Max tokens：`700`
+
+如果 WebLLM 或所選 provider 不可用，PCFA 會使用內建的本機 heuristic scorer。
+
 ## 設定 Ollama
 
-Ollama 是可選的。如果 Ollama 不可用，PCFA 會使用內建的本機 heuristic scorer。
+Ollama 是可選的。
 
 安裝並啟動 Ollama，然後拉取預設模型：
 
@@ -56,11 +70,11 @@ PCFA 會將本機模型請求送到：
 http://localhost:11434
 ```
 
-開啟 PCFA side panel，點選 Ollama 狀態列中的 "Check" 來確認連線。
+開啟 PCFA side panel，選擇 provider `ollama`，再點選 provider 狀態列中的 "Check" 來確認連線。
 
 ## LM Studio 或 OpenAI-Compatible 服務
 
-PCFA 可以使用 Ollama、本機 OpenAI-compatible server，或明確核准的 OpenAI-compatible endpoint。Ollama 會呼叫：
+PCFA 預設使用 WebLLM，也可以使用 Ollama、本機 OpenAI-compatible server，或明確核准的 OpenAI-compatible endpoint。Ollama 會呼叫：
 
 ```text
 http://localhost:11434/api/generate
@@ -97,9 +111,10 @@ PCFA 目前會透過 `/v1/chat/completions` 送出分析，並透過 `/v1/models
 
 ## 建議初始設定
 
-- Ollama model：`llama3.2`
+- Provider：`webllm`
+- WebLLM model：`Llama-3.2-1B-Instruct-q4f16_1-MLC`
 - Collapse threshold：`72%`
-- Heuristic-only mode：關閉，除非你不想呼叫 Ollama。
+- Heuristic-only mode：關閉，除非你不想呼叫模型。
 - Store raw visible text locally：關閉。
 
 預設不儲存原始可見文字。分數與最小化 item metadata 會儲存在 `chrome.storage.local`。

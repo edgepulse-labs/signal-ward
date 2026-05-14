@@ -6,13 +6,14 @@ PCFA 不是審查工具，也不判定政治真相。它是一個注意力保護
 
 ## 目前 MVP
 
-這個 repository 目前包含一個不依賴外部套件的 Chrome Manifest V3 prototype。
+這個 repository 目前包含一個打包 WebLLM runtime 的 Chrome Manifest V3 prototype。
 
 已實作：
 
 - X 與 Threads 的可見貼文擷取，
-- 透過 Ollama、本機 OpenAI-compatible server，或已核准的 OpenAI-compatible endpoint 進行分析，
-- Ollama 不可用時的本機 heuristic fallback，
+- 預設透過瀏覽器本地端 WebLLM 進行分析，
+- 可選擇透過 Ollama、本機 OpenAI-compatible server，或已核准的 OpenAI-compatible endpoint 進行分析，
+- 所選模型 runtime 不可用時的本機 heuristic fallback，
 - 毒性、憤怒、資訊密度、宣傳風險、bot signal 與 coordination risk 估計，
 - 可逆的高毒性內容摺疊，
 - 帶有解釋的內容標註，
@@ -54,18 +55,20 @@ npm run build
 6. 開啟 X 或 Threads，照常瀏覽。
 7. 從 extension toolbar 開啟 PCFA side panel。
 
-## 可選本機模型設定
+## 本機模型設定
 
-PCFA 預設使用 Ollama model name `llama3.2`。
+PCFA 預設使用瀏覽器本地端 WebLLM，模型為 `Llama-3.2-1B-Instruct-q4f16_1-MLC`。第一次執行會將模型資源下載到瀏覽器快取，並需要啟用 WebGPU 的 Chrome / Chromium profile。
+
+Ollama 仍可作為可選的本機 server provider：
 
 ```sh
 ollama serve
 ollama pull llama3.2
 ```
 
-如果 Ollama 不可用，PCFA 會降級使用內建的本機 heuristic scorer。
+如果所選模型 provider 不可用，PCFA 會降級使用內建的本機 heuristic scorer。
 
-若使用 LM Studio 或其他 OpenAI-compatible local server，請在 side panel 選擇 `OpenAI-compatible`，並設定 base URL，例如 `http://localhost:1234/v1`。Extension 明確 allowlist 的遠端 OpenAI-compatible endpoint 也可使用。
+若使用 LM Studio、自訂雲端模型 gateway，或其他 OpenAI-compatible server，請在 side panel 選擇 `OpenAI-compatible`，並設定 base URL，例如 `http://localhost:1234/v1`。Extension 明確 allowlist 的遠端 OpenAI-compatible endpoint 也可使用。
 
 ## 隱私邊界
 

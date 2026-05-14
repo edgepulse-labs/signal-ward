@@ -42,9 +42,13 @@ Side panel 會顯示：
 可用設定：
 
 - 語言：依瀏覽器自動選擇、English，或繁體中文。
-- Ollama model：送往 Ollama 的本機模型名稱。
-- Collapse threshold：貼文被摺疊的分數門檻。
-- Use heuristic mode only：停用 Ollama 呼叫，只使用本機 keyword heuristic。
+- Model provider：預設使用 WebLLM，也可由使用者選擇 Ollama 或 OpenAI-compatible provider。
+- Model：WebLLM model id、Ollama model name，或 OpenAI-compatible model id。
+- WebLLM temperature / max tokens：瀏覽器本地端 inference 參數。
+- Toxicity collapse threshold：毒性分數高於此門檻時預設收疊。
+- Anger collapse threshold：憤怒分數高於此門檻時預設收疊。
+- 已確認廣告預設收疊：平台已標示為廣告的貼文會預設收疊。
+- Use heuristic mode only：停用模型呼叫，只使用本機 keyword heuristic。
 - Store raw visible text locally：將原始可見貼文文字儲存在本機 Chrome extension storage。
 - Store model debug traces locally：記錄最近的模型原始回應、解析後 JSON、正規化分數與 fallback 錯誤，供除錯使用。
 - 協助發佈匿名統計資訊到伺服器：可選的雲端協作設定，預設關閉。
@@ -57,7 +61,7 @@ Side panel 會顯示：
 
 ## 除錯模型回應
 
-如果 OpenAI-compatible 或 Ollama 分析看起來全部回傳 0 分，請啟用「在本機儲存模型除錯紀錄」、儲存設定、重新整理 feed，然後查看 Model Debug / 模型除錯面板。
+如果 WebLLM、OpenAI-compatible 或 Ollama 分析看起來全部回傳 0 分，請啟用「在本機儲存模型除錯紀錄」、儲存設定、重新整理 feed，然後查看 Model Debug / 模型除錯面板。
 
 除錯面板會顯示：
 
@@ -71,15 +75,15 @@ Side panel 會顯示：
 
 ## 閱讀 Daily Rollups
 
-Daily Rollup panel 會摘要今天的本機活動，包括已分析項目數、高毒性項目數、平均情緒暴露估計、平均宣傳風險估計，以及 Ollama 與 heuristic scoring 的比例。
+Daily Rollup panel 會摘要今天的本機活動，包括已分析項目數、高毒性項目數、平均情緒暴露估計、平均宣傳風險估計，以及 WebLLM、Ollama、OpenAI-compatible 與 heuristic scoring 的比例。
 
-## 檢查 Ollama
+## 檢查模型提供者
 
-在 side panel 的 Ollama 狀態列點選 "Check"。PCFA 會呼叫本機 Ollama tags endpoint，並在可用時顯示可用狀態、延遲與模型名稱。
+在 side panel 的 provider 狀態列點選 "Check"。若選擇 WebLLM，PCFA 會載入瀏覽器本地端模型並顯示就緒狀態。若選擇 Ollama，PCFA 會呼叫本機 Ollama tags endpoint，並在可用時顯示可用狀態、延遲與模型名稱。
 
-如果 Ollama 失敗，除非已啟用 heuristic-only mode，分析會自動降級為本機 heuristic scoring。
+如果所選 provider 失敗，除非已啟用 heuristic-only mode，分析會自動降級為本機 heuristic scoring。
 
-LM Studio 與其他 OpenAI-compatible local servers 可從 Model provider 控制項選擇。請使用 `http://localhost:1234/v1` 這類本機 base URL。只有明確 allowlist 的遠端 OpenAI-compatible origin 會被接受；其他遠端 provider URL 會被拒絕，以維持 local-first 隱私邊界。
+LM Studio、自訂雲端模型 gateway 與其他 OpenAI-compatible servers 可從 Model provider 控制項選擇。本機 server 請使用 `http://localhost:1234/v1` 這類本機 base URL。只有明確 allowlist 的遠端 OpenAI-compatible origin 會被接受；其他遠端 provider URL 會被拒絕，以維持 local-first 隱私邊界。
 
 ## 清除本機資料
 

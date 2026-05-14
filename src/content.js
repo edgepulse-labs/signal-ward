@@ -9,8 +9,11 @@
     items: new Map(),
     observer: null,
     mutationTimer: null,
+    contextAlive: true,
     settings: {
-      toxicityThreshold: 0.72
+      toxicityThreshold: 0.72,
+      angerThreshold: 0.8,
+      collapseAds: false
     }
   };
   const i18n = globalThis.PCFA_I18N;
@@ -20,7 +23,7 @@
     return;
   }
 
-  chrome.runtime.sendMessage({ type: "PCFA_GET_STATE" }, (response) => {
+  safeRuntimeSendMessage({ type: "PCFA_GET_STATE" }, (response) => {
     if (response?.ok && response.state?.settings) {
       STATE.settings = response.state.settings;
       applyLanguage();
@@ -28,13 +31,7 @@
     boot();
   });
 
-  chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === "local" && changes.settings?.newValue) {
-      STATE.settings = changes.settings.newValue;
-      applyLanguage();
-      refreshCollapseState();
-    }
-  });
+  safeAddStorageListener();
 
   function applyLanguage() {
     translator = i18n.createTranslator(STATE.settings.language || "auto");
@@ -51,10 +48,13 @@
   }
 
   function boot() {
+    if (!STATE.contextAlive) {
+      return;
+    }
     injectPageMarker();
     scheduleStartupScans();
-    const mutationObserver = new MutationObserver(scheduleScan);
-    mutationObserver.observe(document.body, { childList: true, subtree: true });
+    STATE.observer = new MutationObserver(scheduleScan);
+    STATE.observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("scroll", scheduleScan, { passive: true });
     window.addEventListener("resize", scheduleScan, { passive: true });
   }
@@ -67,11 +67,17 @@
   }
 
   function scheduleScan() {
+    if (!STATE.contextAlive) {
+      return;
+    }
     window.clearTimeout(STATE.mutationTimer);
     STATE.mutationTimer = window.setTimeout(scanVisibleItems, 350);
   }
 
   function scanVisibleItems() {
+    if (!STATE.contextAlive) {
+      return;
+    }
     const nodes = getCandidateNodes();
     for (const node of nodes) {
       if (node.dataset.pcfaScanState === "pending" || node.dataset.pcfaScanState === "done") {
@@ -91,8 +97,11 @@
       STATE.items.set(item.id, item);
       node.dataset.pcfaScanState = "pending";
       annotatePending(node, item);
-      chrome.runtime.sendMessage({ type: "PCFA_ANALYZE_ITEM", item }, (response) => {
+      safeRuntimeSendMessage({ type: "PCFA_ANALYZE_ITEM", item }, (response) => {
         STATE.pendingIds.delete(item.id);
+        if (!STATE.contextAlive) {
+          return;
+        }
         if (!response?.ok) {
           node.dataset.pcfaScanState = "done";
           annotateError(node, response?.error || t("contentLocalAnalysisUnavailable"));
@@ -150,6 +159,7 @@
       .slice(0, 8);
     const url = visibleLinks.find((href) => /\/status\/|\/post\//.test(href));
     const observedAt = new Date().toISOString();
+    const platformSignals = extractPlatformSignals(node);
 
     return {
       id: localHash([STATE.platform, authorHandle, text, url || ""].join("|")),
@@ -160,6 +170,7 @@
       text,
       visibleLinks,
       engagement: extractEngagement(node),
+      platformSignals,
       observedAt,
       extractionConfidence: estimateExtractionConfidence({ text, authorHandle, url })
     };
@@ -212,6 +223,13 @@
     return { labels: labels.slice(0, 12) };
   }
 
+  function extractPlatformSignals(node) {
+    const text = normalizeText(node.innerText || "");
+    return {
+      isConfirmedAd: /(^|\s)(廣告|广告|Ad|Promoted|Sponsored)(\s|$)/i.test(text)
+    };
+  }
+
   function annotatePending(node, item) {
     const box = ensurePanel(node, item.id);
     box.innerHTML = "";
@@ -228,11 +246,10 @@
     STATE.results.set(result.itemId, result);
     const box = ensurePanel(node, result.itemId);
     const scores = result.scores;
-    const threshold = STATE.settings.toxicityThreshold ?? 0.72;
-    const shouldCollapse =
-      scores.toxicity >= threshold && !STATE.userExpandedIds.has(result.itemId);
+    const shouldCollapse = shouldCollapseResult(result);
 
     node.dataset.pcfaToxicity = String(scores.toxicity);
+    node.dataset.pcfaAnger = String(scores.anger);
     node.dataset.pcfaConfidence = String(result.confidence);
     node.dataset.pcfaItemId = result.itemId;
     box.innerHTML = "";
@@ -257,7 +274,12 @@
     panel.dataset.pcfaItemId = itemId;
 
     const target = findAnnotationContainer(node);
-    if (panel.parentElement !== target) {
+    const anchor = STATE.platform === "x" ? findXActionGroup(node) : null;
+    if (anchor?.parentElement) {
+      if (panel.parentElement !== anchor.parentElement || panel.previousElementSibling !== anchor) {
+        anchor.insertAdjacentElement("afterend", panel);
+      }
+    } else if (panel.parentElement !== target) {
       target.append(panel);
     }
     return panel;
@@ -288,6 +310,17 @@
     return textNode.parentElement || node;
   }
 
+  function findXActionGroup(node) {
+    const groups = Array.from(node.querySelectorAll('[role="group"]'));
+    return groups
+      .filter((group) =>
+        group.querySelector(
+          '[data-testid="reply"], [data-testid="retweet"], [data-testid="like"], [data-testid="bookmark"]'
+        )
+      )
+      .at(-1) || null;
+  }
+
   function createBadge(label, value, tone) {
     const badge = document.createElement("span");
     badge.className = `pcfa-badge pcfa-${tone}`;
@@ -301,6 +334,20 @@
     const label = isLowConfidence ? t("badgeUncertain") : t("badgeConfidence");
     const tone = isLowConfidence ? "warning" : "neutral";
     return createBadge(label, formatScore(confidence), tone);
+  }
+
+  function shouldCollapseResult(result) {
+    if (STATE.userExpandedIds.has(result.itemId)) {
+      return false;
+    }
+    const scores = result.scores || {};
+    const toxicityThreshold = STATE.settings.toxicityThreshold ?? 0.72;
+    const angerThreshold = STATE.settings.angerThreshold ?? 0.8;
+    return (
+      Number(scores.toxicity || 0) >= toxicityThreshold ||
+      Number(scores.anger || 0) >= angerThreshold ||
+      (Boolean(STATE.settings.collapseAds) && result.classification?.primary === "ad")
+    );
   }
 
   function createPendingDetails() {
@@ -324,6 +371,12 @@
     summary.append(createBrandMark());
     summary.append(
       createBadge(
+        t("badgeContentType"),
+        contentClassLabel(result.classification?.primary),
+        classificationTone(result.classification?.primary)
+      ),
+      createConfidenceBadge(result),
+      createBadge(
         t("badgeToxicity"),
         formatScore(result.scores.toxicity),
         scoreTone(result.scores.toxicity)
@@ -334,12 +387,6 @@
         formatScore(result.scores.informationDensity),
         scoreTone(1 - result.scores.informationDensity)
       ),
-      createBadge(
-        t("badgeContentType"),
-        contentClassLabel(result.classification?.primary),
-        classificationTone(result.classification?.primary)
-      ),
-      createConfidenceBadge(result),
       createExpandLabel(result),
       createReanalyzeButton(result, node)
     );
@@ -397,8 +444,11 @@
     STATE.pendingIds.add(item.id);
     node.dataset.pcfaScanState = "pending";
     annotatePending(node, item);
-    chrome.runtime.sendMessage({ type: "PCFA_ANALYZE_ITEM", item, force: true }, (response) => {
+    safeRuntimeSendMessage({ type: "PCFA_ANALYZE_ITEM", item, force: true }, (response) => {
       STATE.pendingIds.delete(item.id);
+      if (!STATE.contextAlive) {
+        return;
+      }
       node.dataset.pcfaScanState = "done";
       if (!response?.ok) {
         annotateError(node, response?.error || t("contentLocalAnalysisUnavailable"));
@@ -414,11 +464,112 @@
     const icon = document.createElement("img");
     icon.className = "pcfa-brand-icon";
     icon.alt = "";
-    icon.src = chrome.runtime.getURL("assets/icons/icon-32.png");
+    const iconUrl = safeRuntimeGetURL("assets/icons/icon-32.png");
+    if (iconUrl) {
+      icon.src = iconUrl;
+    }
     const text = document.createElement("span");
     text.textContent = "PCFA";
-    brand.append(icon, text);
+    brand.append(...(iconUrl ? [icon] : []), text);
     return brand;
+  }
+
+  function safeAddStorageListener() {
+    try {
+      if (!chrome?.storage?.onChanged || !chrome?.runtime?.id) {
+        invalidateContext();
+        return;
+      }
+      chrome.storage.onChanged.addListener(handleStorageChanged);
+    } catch (error) {
+      if (isContextInvalidatedError(error)) {
+        invalidateContext();
+      }
+    }
+  }
+
+  function handleStorageChanged(changes, areaName) {
+    if (!STATE.contextAlive) {
+      return;
+    }
+    if (areaName === "local" && changes.settings?.newValue) {
+      STATE.settings = changes.settings.newValue;
+      applyLanguage();
+      refreshCollapseState();
+    }
+  }
+
+  function safeRuntimeSendMessage(message, callback) {
+    if (!STATE.contextAlive) {
+      return false;
+    }
+
+    try {
+      if (!chrome?.runtime?.id) {
+        invalidateContext();
+        return false;
+      }
+      chrome.runtime.sendMessage(message, (response) => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          if (isContextInvalidatedError(error)) {
+            invalidateContext();
+            return;
+          }
+          callback?.({ ok: false, error: error.message });
+          return;
+        }
+        callback?.(response);
+      });
+      return true;
+    } catch (error) {
+      if (isContextInvalidatedError(error)) {
+        invalidateContext();
+        return false;
+      }
+      callback?.({ ok: false, error: error.message });
+      return false;
+    }
+  }
+
+  function safeRuntimeGetURL(path) {
+    if (!STATE.contextAlive) {
+      return "";
+    }
+    try {
+      if (!chrome?.runtime?.id) {
+        invalidateContext();
+        return "";
+      }
+      return chrome.runtime.getURL(path);
+    } catch (error) {
+      if (isContextInvalidatedError(error)) {
+        invalidateContext();
+      }
+      return "";
+    }
+  }
+
+  function invalidateContext() {
+    if (!STATE.contextAlive) {
+      return;
+    }
+    STATE.contextAlive = false;
+    window.clearTimeout(STATE.mutationTimer);
+    STATE.observer?.disconnect();
+    window.removeEventListener("scroll", scheduleScan);
+    window.removeEventListener("resize", scheduleScan);
+    try {
+      chrome?.storage?.onChanged?.removeListener(handleStorageChanged);
+    } catch {
+      // The extension context is already gone.
+    }
+  }
+
+  function isContextInvalidatedError(error) {
+    return String(error?.message || error || "")
+      .toLowerCase()
+      .includes("extension context invalidated");
   }
 
   function createExpandLabel(result) {
@@ -447,7 +598,11 @@
 
     const notice = document.createElement("div");
     notice.className = "pcfa-collapse-notice";
-    notice.textContent = t("collapsedNotice", { toxicity: formatScore(result.scores.toxicity) });
+    notice.textContent = t("collapsedNotice", {
+      toxicity: formatScore(result.scores.toxicity),
+      anger: formatScore(result.scores.anger),
+      contentType: contentClassLabel(result.classification?.primary)
+    });
     notice.append(control);
     const target = findAnnotationContainer(node);
     const panel = target.querySelector(".pcfa-panel");
@@ -464,12 +619,9 @@
 
   function refreshCollapseState() {
     for (const node of document.querySelectorAll("[data-pcfa-toxicity]")) {
-      const toxicity = Number(node.dataset.pcfaToxicity);
       const userExpanded = node.dataset.pcfaUserExpanded === "true";
-      if (
-        userExpanded ||
-        (Number.isFinite(toxicity) && toxicity < (STATE.settings.toxicityThreshold ?? 0.72))
-      ) {
+      const result = STATE.results.get(node.dataset.pcfaItemId);
+      if (userExpanded || (result && !shouldCollapseResult(result))) {
         expandNode(node);
       }
     }

@@ -1,5 +1,5 @@
 export type FeedPlatform = "x" | "threads";
-export type AnalysisSource = "ollama" | "openai-compatible" | "heuristic";
+export type AnalysisSource = "webllm" | "ollama" | "openai-compatible" | "heuristic";
 export type ContentClass = "ad" | "propaganda" | "chitchat" | "informational" | "opinion" | "unknown";
 
 export interface FeedItem {
@@ -12,6 +12,9 @@ export interface FeedItem {
   visibleLinks: string[];
   engagement: {
     labels: string[];
+  };
+  platformSignals?: {
+    isConfirmedAd?: boolean;
   };
   observedAt: string;
   extractionConfidence: number;
@@ -44,6 +47,7 @@ export interface AnalysisResult {
   itemId: string;
   platform: FeedPlatform;
   model: string;
+  analysisPromptVersion?: number;
   analyzedAt: string;
   scores: SignalScores;
   confidence: number;
@@ -58,11 +62,15 @@ export interface AnalysisResult {
 
 export interface Settings {
   model: string;
-  modelProvider: "ollama" | "openai-compatible";
+  modelProvider: "webllm" | "ollama" | "openai-compatible";
   openaiBaseUrl: string;
   openaiApiKey: string;
+  webLlmTemperature: number;
+  webLlmMaxTokens: number;
   toxicityThreshold: number;
-  analysisMode: "ollama" | "heuristic";
+  angerThreshold: number;
+  collapseAds: boolean;
+  analysisMode: "model" | "ollama" | "heuristic";
   storeRawText: boolean;
   modelDebugMode: boolean;
   shareStatsWithServer: boolean;
@@ -81,6 +89,7 @@ export interface DailyRollup {
   totalInformationDensity: number;
   totalPropagandaRisk: number;
   sources: {
+    webllm: number;
     ollama: number;
     openaiCompatible: number;
     heuristic: number;

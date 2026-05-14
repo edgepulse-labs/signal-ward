@@ -41,6 +41,10 @@
           <div>
             <strong id="ollamaStatus" data-i18n="ollamaNotChecked">Ollama not checked</strong>
             <span id="ollamaDetail" data-i18n="verifyLocalhost">Use the check button to verify localhost.</span>
+            <div id="webLlmProgressWrap" class="model-progress" hidden>
+              <progress id="webLlmProgress" max="100" value="0"></progress>
+              <span id="webLlmProgressText">0%</span>
+            </div>
           </div>
           <button id="checkOllama" class="secondary compact" type="button" data-i18n="checkButton">Check</button>
         </div>
@@ -51,13 +55,23 @@
         <label class="field">
           <span data-i18n="modelProviderLabel">Model provider</span>
           <select id="modelProvider">
+            <option value="webllm">WebLLM</option>
             <option value="ollama">Ollama</option>
             <option value="openai-compatible">OpenAI-compatible</option>
           </select>
         </label>
         <label class="field">
           <span data-i18n="modelLabel">Model</span>
-          <input id="model" type="text" autocomplete="off" spellcheck="false">
+          <input id="model" type="text" list="modelOptions" autocomplete="off" spellcheck="false">
+          <datalist id="modelOptions"></datalist>
+        </label>
+        <label class="field provider-webllm">
+          <span data-i18n="webLlmTemperatureLabel">WebLLM temperature</span>
+          <input id="webLlmTemperature" type="number" min="0" max="2" step="0.1">
+        </label>
+        <label class="field provider-webllm">
+          <span data-i18n="webLlmMaxTokensLabel">WebLLM max tokens</span>
+          <input id="webLlmMaxTokens" type="number" min="128" max="4096" step="1">
         </label>
         <label class="field provider-openai">
           <span data-i18n="openAIBaseUrlLabel">OpenAI-compatible base URL</span>
@@ -68,12 +82,20 @@
           <input id="openaiApiKey" type="password" autocomplete="off" spellcheck="false">
         </label>
         <label class="field">
-          <span><span data-i18n="collapseThresholdLabel">Collapse threshold</span> <b id="thresholdValue">72%</b></span>
+          <span><span data-i18n="toxicityCollapseThresholdLabel">Toxicity collapse threshold</span> <b id="thresholdValue">72%</b></span>
           <input id="toxicityThreshold" type="range" min="0" max="1" step="0.01">
+        </label>
+        <label class="field">
+          <span><span data-i18n="angerCollapseThresholdLabel">Anger collapse threshold</span> <b id="angerThresholdValue">80%</b></span>
+          <input id="angerThreshold" type="range" min="0" max="1" step="0.01">
         </label>
         <label class="field">
           <span data-i18n="retentionDaysLabel">Retention days</span>
           <input id="retentionDays" type="number" min="1" max="365" step="1">
+        </label>
+        <label class="toggle">
+          <input id="collapseAds" type="checkbox">
+          <span data-i18n="collapseAdsLabel">Collapse confirmed ads by default</span>
         </label>
         <label class="toggle">
           <input id="analysisMode" type="checkbox">
