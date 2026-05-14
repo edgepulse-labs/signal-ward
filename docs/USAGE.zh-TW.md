@@ -23,6 +23,8 @@ PCFA 會在你正常瀏覽時標註可見的 X 與 Threads 貼文。它不會自
 
 毒性高於 collapse threshold 的貼文會以非破壞方式摺疊。點選 "Show original" 可還原單一項目。
 
+已分析貼文會快取在瀏覽器 extension storage 中。之後再次看到同一則貼文時，PCFA 會重用快取結果，不會再次呼叫模型。若要強制重新分析單一貼文，請點選 PCFA 列最右側的圓形箭頭按鈕。
+
 ## 使用 Side Panel
 
 Side panel 會顯示：

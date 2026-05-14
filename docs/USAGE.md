@@ -23,6 +23,8 @@ Each analyzed post can show:
 
 High-toxicity posts above the collapse threshold are collapsed non-destructively. Use "Show original" to restore a collapsed item.
 
+Analyzed posts are cached in browser extension storage. PCFA reuses the cached result instead of calling the model again when the same post is seen later. Use the circular arrow button on the right side of the PCFA row to force a fresh analysis for that post.
+
 ## Use the Side Panel
 
 The side panel shows:

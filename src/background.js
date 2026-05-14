@@ -58,7 +58,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "PCFA_ANALYZE_ITEM") {
-    analyzeAndStore(message.item)
+    analyzeAndStore(message.item, { force: Boolean(message.force) })
       .then((result) => sendResponse({ ok: true, result }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
@@ -102,7 +102,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-async function analyzeAndStore(item) {
+async function analyzeAndStore(item, options = {}) {
   if (!item?.id || !item?.text) {
     throw new Error("Missing feed item id or text.");
   }
@@ -114,7 +114,7 @@ async function analyzeAndStore(item) {
   const settings = { ...DEFAULT_SETTINGS, ...(stored.settings || {}) };
   const scores = stored.scores || {};
 
-  if (scores[item.id] && canUseCachedScore(scores[item.id], settings)) {
+  if (!options.force && scores[item.id] && canUseCachedScore(scores[item.id], settings)) {
     return { ...scores[item.id], cached: true, settings };
   }
 
@@ -140,15 +140,15 @@ async function analyzeAndStore(item) {
   };
 
   scores[item.id] = result;
-  const metrics = updateMetrics(await readMetrics(), result, settings);
-  const dailyRollups = updateDailyRollups(await readDailyRollups(), result, settings);
+  const metrics = recomputeMetrics(scores, settings);
+  const dailyRollups = recomputeDailyRollups(scores, settings);
   const pruned = applyRetention(scores, dailyRollups, settings);
   await chrome.storage.local.set({
     scores: pruned.scores,
     metrics,
     dailyRollups: pruned.dailyRollups
   });
-  return { ...result, cached: false, settings };
+  return { ...result, cached: false, reanalyzed: Boolean(options.force), settings };
 }
 
 async function analyzeItem(item, settings) {
@@ -855,6 +855,71 @@ async function readMetrics() {
 async function readDailyRollups() {
   const { dailyRollups } = await chrome.storage.local.get("dailyRollups");
   return dailyRollups || DEFAULT_DAILY_ROLLUPS;
+}
+
+function recomputeMetrics(scores, settings) {
+  const results = Object.values(scores || {});
+  const toxicityThreshold = settings.toxicityThreshold ?? DEFAULT_SETTINGS.toxicityThreshold;
+  return results.reduce(
+    (metrics, result) => ({
+      postsViewed: metrics.postsViewed + 1,
+      postsAnalyzed: metrics.postsAnalyzed + 1,
+      highToxicityPosts:
+        metrics.highToxicityPosts + (result.scores?.toxicity >= toxicityThreshold ? 1 : 0),
+      totalInformationDensity:
+        metrics.totalInformationDensity + Number(result.scores?.informationDensity || 0),
+      totalToxicity: metrics.totalToxicity + Number(result.scores?.toxicity || 0),
+      totalAnger: metrics.totalAnger + Number(result.scores?.anger || 0),
+      lastAnalyzedAt:
+        !metrics.lastAnalyzedAt || String(result.analyzedAt) > String(metrics.lastAnalyzedAt)
+          ? result.analyzedAt
+          : metrics.lastAnalyzedAt
+    }),
+    { ...DEFAULT_METRICS }
+  );
+}
+
+function recomputeDailyRollups(scores, settings) {
+  const toxicityThreshold = settings.toxicityThreshold ?? DEFAULT_SETTINGS.toxicityThreshold;
+  const rollups = {};
+  for (const result of Object.values(scores || {})) {
+    const day = String(result.analyzedAt || new Date().toISOString()).slice(0, 10);
+    const existing = rollups[day] || {
+      date: day,
+      postsAnalyzed: 0,
+      highToxicityPosts: 0,
+      totalToxicity: 0,
+      totalAnger: 0,
+      totalFear: 0,
+      totalInformationDensity: 0,
+      totalPropagandaRisk: 0,
+      sources: {
+        ollama: 0,
+        openaiCompatible: 0,
+        heuristic: 0
+      }
+    };
+    rollups[day] = {
+      ...existing,
+      postsAnalyzed: existing.postsAnalyzed + 1,
+      highToxicityPosts:
+        existing.highToxicityPosts + (result.scores?.toxicity >= toxicityThreshold ? 1 : 0),
+      totalToxicity: existing.totalToxicity + Number(result.scores?.toxicity || 0),
+      totalAnger: existing.totalAnger + Number(result.scores?.anger || 0),
+      totalFear: existing.totalFear + Number(result.scores?.fear || 0),
+      totalInformationDensity:
+        existing.totalInformationDensity + Number(result.scores?.informationDensity || 0),
+      totalPropagandaRisk:
+        existing.totalPropagandaRisk + Number(result.scores?.propagandaRisk || 0),
+      sources: {
+        ollama: existing.sources.ollama + (result.source === "ollama" ? 1 : 0),
+        openaiCompatible:
+          existing.sources.openaiCompatible + (result.source === "openai-compatible" ? 1 : 0),
+        heuristic: existing.sources.heuristic + (result.source === "heuristic" ? 1 : 0)
+      }
+    };
+  }
+  return rollups;
 }
 
 function updateMetrics(metrics, result, settings) {

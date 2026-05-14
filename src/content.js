@@ -2,9 +2,11 @@
   const STATE = {
     platform: detectPlatform(),
     observedIds: new Set(),
+    pendingIds: new Set(),
     annotatedIds: new Set(),
     userExpandedIds: new Set(),
     results: new Map(),
+    items: new Map(),
     observer: null,
     mutationTimer: null,
     settings: {
@@ -72,22 +74,31 @@
   function scanVisibleItems() {
     const nodes = getCandidateNodes();
     for (const node of nodes) {
+      if (node.dataset.pcfaScanState === "pending" || node.dataset.pcfaScanState === "done") {
+        continue;
+      }
       if (!isVisibleInViewport(node)) {
         continue;
       }
 
       const item = extractItem(node);
-      if (!item || STATE.observedIds.has(item.id)) {
+      if (!item || STATE.observedIds.has(item.id) || STATE.pendingIds.has(item.id)) {
         continue;
       }
 
+      STATE.pendingIds.add(item.id);
       STATE.observedIds.add(item.id);
+      STATE.items.set(item.id, item);
+      node.dataset.pcfaScanState = "pending";
       annotatePending(node, item);
       chrome.runtime.sendMessage({ type: "PCFA_ANALYZE_ITEM", item }, (response) => {
+        STATE.pendingIds.delete(item.id);
         if (!response?.ok) {
+          node.dataset.pcfaScanState = "done";
           annotateError(node, response?.error || t("contentLocalAnalysisUnavailable"));
           return;
         }
+        node.dataset.pcfaScanState = "done";
         annotateResult(node, response.result);
       });
     }
@@ -97,20 +108,32 @@
     if (STATE.platform === "x") {
       return uniqueElements(
         Array.from(document.querySelectorAll('article[data-testid="tweet"], article[role="article"]'))
-      ).filter((node) => normalizeText(node.innerText).length > 20);
+      ).filter((node) => extractComparableText(node).length > 20);
     }
 
-    return uniqueElements(
+    return innermostCandidateNodes(uniqueElements(
       Array.from(
         document.querySelectorAll(
           'article, div[role="article"], div[data-pressable-container="true"]'
         )
       )
-    ).filter((node) => normalizeText(node.innerText).length > 40);
+    ).filter((node) => extractComparableText(node).length > 40));
   }
 
   function uniqueElements(elements) {
     return Array.from(new Set(elements));
+  }
+
+  function innermostCandidateNodes(elements) {
+    return elements.filter(
+      (node) =>
+        !elements.some(
+          (other) =>
+            other !== node &&
+            node.contains(other) &&
+            extractComparableText(other).length > 40
+        )
+    );
   }
 
   function extractItem(node) {
@@ -150,10 +173,25 @@
     }
 
     const clone = node.cloneNode(true);
+    removePcfaUi(clone);
     for (const removable of clone.querySelectorAll("svg, img, video, button")) {
       removable.remove();
     }
     return normalizeText(clone.innerText);
+  }
+
+  function extractComparableText(node) {
+    const clone = node.cloneNode(true);
+    removePcfaUi(clone);
+    return normalizeText(clone.innerText);
+  }
+
+  function removePcfaUi(root) {
+    for (const removable of root.querySelectorAll(
+      ".pcfa-panel, .pcfa-collapse-notice, .pcfa-page-marker"
+    )) {
+      removable.remove();
+    }
   }
 
   function extractAuthorHandle(node) {
@@ -177,7 +215,7 @@
   function annotatePending(node, item) {
     const box = ensurePanel(node, item.id);
     box.innerHTML = "";
-    box.append(createBadge("PCFA", t("contentAnalyzingLocally"), "neutral"));
+    box.append(createPendingDetails());
   }
 
   function annotateError(node, message) {
@@ -198,7 +236,7 @@
     node.dataset.pcfaConfidence = String(result.confidence);
     node.dataset.pcfaItemId = result.itemId;
     box.innerHTML = "";
-    box.append(createDetails(result));
+    box.append(createDetails(result, node));
 
     if (shouldCollapse) {
       expandNode(node);
@@ -265,7 +303,20 @@
     return createBadge(label, formatScore(confidence), tone);
   }
 
-  function createDetails(result) {
+  function createPendingDetails() {
+    const details = document.createElement("details");
+    details.className = "pcfa-details pcfa-pending";
+    const summary = document.createElement("summary");
+    summary.className = "pcfa-summary";
+    const status = document.createElement("span");
+    status.className = "pcfa-pending-text";
+    status.textContent = t("contentAnalyzingLocally");
+    summary.append(createBrandMark(), status);
+    details.append(summary);
+    return details;
+  }
+
+  function createDetails(result, node) {
     const details = document.createElement("details");
     details.className = "pcfa-details";
     const summary = document.createElement("summary");
@@ -289,7 +340,8 @@
         classificationTone(result.classification?.primary)
       ),
       createConfidenceBadge(result),
-      createExpandLabel(result)
+      createExpandLabel(result),
+      createReanalyzeButton(result, node)
     );
     const list = document.createElement("ul");
 
@@ -319,6 +371,41 @@
 
     details.append(summary, list);
     return details;
+  }
+
+  function createReanalyzeButton(result, node) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "pcfa-reanalyze";
+    button.title = t("reanalyzeTitle");
+    button.setAttribute("aria-label", t("reanalyzeTitle"));
+    button.textContent = "↻";
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      reanalyzeNode(node, result);
+    });
+    return button;
+  }
+
+  function reanalyzeNode(node, result) {
+    const item = extractItem(node) || STATE.items.get(result.itemId);
+    if (!item || STATE.pendingIds.has(item.id)) {
+      return;
+    }
+    STATE.items.set(item.id, item);
+    STATE.pendingIds.add(item.id);
+    node.dataset.pcfaScanState = "pending";
+    annotatePending(node, item);
+    chrome.runtime.sendMessage({ type: "PCFA_ANALYZE_ITEM", item, force: true }, (response) => {
+      STATE.pendingIds.delete(item.id);
+      node.dataset.pcfaScanState = "done";
+      if (!response?.ok) {
+        annotateError(node, response?.error || t("contentLocalAnalysisUnavailable"));
+        return;
+      }
+      annotateResult(node, response.result);
+    });
   }
 
   function createBrandMark() {
