@@ -126,13 +126,13 @@ PCFA 目前會透過 `/v1/chat/completions` 送出分析，並透過 `/v1/models
 1. 執行 `npm run build`。
 2. 開啟 `chrome://extensions`。
 3. 點選 PCFA extension 卡片上的 reload 按鈕。
-4. 重新整理已開啟的 X 或 Threads 分頁。
+4. 重新整理已開啟的 X、Threads 或 Facebook 分頁。
 
 ## 疑難排解
 
 如果 extension 沒有出現，請執行 `npm run build`，並檢查 Chrome extension error panel。
 
-如果沒有任何貼文被標註，請重新整理 X 或 Threads 分頁，並確認網址符合 manifest 中設定的 host permissions。
+如果沒有任何貼文被標註，請重新整理 X、Threads 或 Facebook 分頁，並確認網址符合 manifest 中設定的 host permissions。
 
 如果 Ollama 顯示不可用，請確認 `ollama serve` 正在執行，且 `http://localhost:11434/api/tags` 可在本機回應。
 

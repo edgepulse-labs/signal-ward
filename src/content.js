@@ -120,6 +120,21 @@
       ).filter((node) => extractComparableText(node).length > 20);
     }
 
+    if (STATE.platform === "facebook") {
+      return innermostCandidateNodes(uniqueElements(
+        Array.from(
+          document.querySelectorAll(
+            [
+              '[role="article"]',
+              '[data-pagelet^="FeedUnit_"]',
+              '[data-pagelet^="ProfileTimeline"] [role="article"]',
+              '[data-pagelet^="GroupsFeed"] [role="article"]'
+            ].join(", ")
+          )
+        )
+      ).filter((node) => isLikelyFacebookPost(node)));
+    }
+
     return innermostCandidateNodes(uniqueElements(
       Array.from(
         document.querySelectorAll(
@@ -143,6 +158,18 @@
             extractComparableText(other).length > 40
         )
     );
+  }
+
+  function isLikelyFacebookPost(node) {
+    const text = extractComparableText(node);
+    if (text.length < 40) {
+      return false;
+    }
+    if (findFacebookActionRow(node)) {
+      return true;
+    }
+    const actionText = text.toLowerCase();
+    return /like|comment|share|讚|留言|分享|回應|reply|react/.test(actionText);
   }
 
   function extractItem(node) {
@@ -181,6 +208,16 @@
       const tweetTextNodes = Array.from(node.querySelectorAll('[data-testid="tweetText"]'));
       const text = tweetTextNodes.map((item) => item.innerText).join("\n");
       return normalizeText(text || node.innerText);
+    }
+
+    if (STATE.platform === "facebook") {
+      const messageNodes = Array.from(
+        node.querySelectorAll('[data-ad-preview="message"], [data-ad-comet-preview="message"]')
+      );
+      const text = messageNodes.map((item) => item.innerText).join("\n");
+      if (text) {
+        return normalizeText(text);
+      }
     }
 
     const clone = node.cloneNode(true);
@@ -226,7 +263,7 @@
   function extractPlatformSignals(node) {
     const text = normalizeText(node.innerText || "");
     return {
-      isConfirmedAd: /(^|\s)(廣告|广告|Ad|Promoted|Sponsored)(\s|$)/i.test(text)
+      isConfirmedAd: /(^|\s)(廣告|广告|贊助|赞助|Ad|Promoted|Sponsored)(\s|$)/i.test(text)
     };
   }
 
@@ -272,6 +309,7 @@
       panel.className = "pcfa-panel";
     }
     panel.classList.toggle("pcfa-threads-panel", STATE.platform === "threads");
+    panel.classList.toggle("pcfa-facebook-panel", STATE.platform === "facebook");
     panel.dataset.pcfaItemId = itemId;
 
     const target = findAnnotationContainer(node);
@@ -292,6 +330,9 @@
     }
     if (STATE.platform === "threads") {
       return findThreadsActionRow(node);
+    }
+    if (STATE.platform === "facebook") {
+      return findFacebookActionRow(node);
     }
     return null;
   }
@@ -347,6 +388,48 @@
       .filter(([, count]) => count >= 2)
       .map(([row]) => row)
       .at(-1) || null;
+  }
+
+  function findFacebookActionRow(node) {
+    const actionButtons = Array.from(node.querySelectorAll('[role="button"], button, [aria-label]'))
+      .filter(isFacebookActionControl);
+    const rows = new Map();
+    for (const button of actionButtons) {
+      const row = nearestFacebookActionRow(button, node);
+      if (!row) {
+        continue;
+      }
+      rows.set(row, (rows.get(row) || 0) + 1);
+    }
+    return Array.from(rows.entries())
+      .filter(([, count]) => count >= 2)
+      .map(([row]) => row)
+      .at(-1) || null;
+  }
+
+  function nearestFacebookActionRow(element, boundary) {
+    let candidate = element;
+    while (candidate.parentElement && candidate.parentElement !== boundary) {
+      const parent = candidate.parentElement;
+      const actionCount = Array.from(parent.querySelectorAll('[role="button"], button, [aria-label]'))
+        .filter(isFacebookActionControl).length;
+      const textLength = normalizeText(parent.innerText || "").length;
+      if (actionCount >= 2 && textLength <= 120) {
+        return parent;
+      }
+      candidate = parent;
+    }
+    return null;
+  }
+
+  function isFacebookActionControl(element) {
+    const label = normalizeText(
+      [
+        element.getAttribute("aria-label"),
+        element.textContent
+      ].filter(Boolean).join(" ")
+    ).toLowerCase();
+    return /like|comment|share|send|讚|赞|留言|回應|回应|分享|傳送|发送/.test(label);
   }
 
   function nearestCompactActionRow(element, boundary) {
@@ -742,6 +825,9 @@
     }
     if (host === "threads.com" || host === "www.threads.com") {
       return "threads";
+    }
+    if (host === "facebook.com" || host === "www.facebook.com" || host === "m.facebook.com") {
+      return "facebook";
     }
     return "";
   }

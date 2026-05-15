@@ -126,13 +126,13 @@ After editing extension files:
 1. Run `npm run build`.
 2. Open `chrome://extensions`.
 3. Click the reload button on the PCFA extension card.
-4. Refresh any open X or Threads tabs.
+4. Refresh any open X, Threads, or Facebook tabs.
 
 ## Troubleshooting
 
 If the extension does not appear, run `npm run build` and check Chrome's extension error panel.
 
-If no posts are annotated, refresh the X or Threads tab and make sure the URL matches one of the configured host permissions.
+If no posts are annotated, refresh the X, Threads, or Facebook tab and make sure the URL matches one of the configured host permissions.
 
 If Ollama is unavailable, verify that `ollama serve` is running and that `http://localhost:11434/api/tags` responds locally.
 

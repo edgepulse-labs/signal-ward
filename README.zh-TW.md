@@ -10,7 +10,7 @@ PCFA 不是審查工具，也不判定政治真相。它是一個注意力保護
 
 已實作：
 
-- X 與 Threads 的可見貼文擷取，
+- X、Threads 與 Facebook 的可見貼文擷取，
 - 預設透過瀏覽器本地端 WebLLM 進行分析，
 - 可選擇透過 Ollama、本機 OpenAI-compatible server，或已核准的 OpenAI-compatible endpoint 進行分析，
 - 所選模型 runtime 不可用時的本機 heuristic fallback，
@@ -52,7 +52,7 @@ npm run build
 /home/nier/workspace/signal-ward
 ```
 
-6. 開啟 X 或 Threads，照常瀏覽。
+6. 開啟 X、Threads 或 Facebook，照常瀏覽。
 7. 從 extension toolbar 開啟 PCFA side panel。
 
 ## 本機模型設定

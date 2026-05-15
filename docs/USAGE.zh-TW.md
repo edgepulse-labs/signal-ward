@@ -1,11 +1,11 @@
 # PCFA 使用指南
 
-PCFA 會在你正常瀏覽時標註可見的 X 與 Threads 貼文。它不會自動捲動、自動點擊、展開隱藏內容，或替你執行平台操作。
+PCFA 會在你正常瀏覽時標註可見的 X、Threads 與 Facebook 貼文。它不會自動捲動、自動點擊、展開隱藏內容，或替你執行平台操作。
 
 ## 開始一次瀏覽 Session
 
 1. 在本機載入 extension。
-2. 開啟 X 或 Threads。
+2. 開啟 X、Threads 或 Facebook。
 3. 照常瀏覽。
 4. 從 extension toolbar 開啟 PCFA side panel。
 
@@ -35,6 +35,7 @@ Side panel 會顯示：
 - 平均資訊密度，
 - 帶有來源與信心的 recent signals，
 - 各分類平均分數，
+- X、Threads 與 Facebook 的毒性 / 憤怒平台比較，
 - 隱私與合規狀態。
 
 ## 調整設定

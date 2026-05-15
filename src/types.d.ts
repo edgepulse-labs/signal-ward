@@ -1,4 +1,4 @@
-export type FeedPlatform = "x" | "threads";
+export type FeedPlatform = "x" | "threads" | "facebook";
 export type AnalysisSource = "webllm" | "ollama" | "openai-compatible" | "heuristic";
 export type ContentClass = "ad" | "propaganda" | "chitchat" | "informational" | "opinion" | "unknown";
 

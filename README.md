@@ -10,7 +10,7 @@ This repository currently contains a Chrome Manifest V3 prototype with a package
 
 Implemented:
 
-- visible post extraction for X and Threads,
+- visible post extraction for X, Threads, and Facebook,
 - browser-local analysis through WebLLM by default,
 - optional analysis through Ollama, a local OpenAI-compatible server, or an approved OpenAI-compatible endpoint,
 - local heuristic fallback when the selected model runtime is unavailable,
@@ -52,7 +52,7 @@ npm run build
 /home/nier/workspace/signal-ward
 ```
 
-6. Open X or Threads and browse normally.
+6. Open X, Threads, or Facebook and browse normally.
 7. Open the PCFA side panel from the extension toolbar.
 
 ## Local Model Setup

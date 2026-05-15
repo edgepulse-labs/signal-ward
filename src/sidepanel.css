@@ -276,6 +276,49 @@ button.danger {
   text-align: right;
 }
 
+.platform-comparison {
+  overflow-x: auto;
+}
+
+.platform-summary {
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #f5f7f5;
+  color: #243d39;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.platform-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.platform-table th,
+.platform-table td {
+  padding: 7px 6px;
+  border-bottom: 1px solid #e3e8e5;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.platform-table th:first-child,
+.platform-table td:first-child {
+  text-align: left;
+}
+
+.platform-table th {
+  color: #50625e;
+  font-weight: 700;
+}
+
+.platform-table td {
+  color: #172522;
+  font-weight: 650;
+}
+
 .privacy-status {
   display: grid;
   grid-template-columns: minmax(110px, 0.8fr) 1fr;

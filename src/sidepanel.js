@@ -34,6 +34,7 @@ const elements = {
   clearModelDebug: document.querySelector("#clearModelDebug"),
   recentList: document.querySelector("#recentList"),
   categoryDetails: document.querySelector("#categoryDetails"),
+  platformComparison: document.querySelector("#platformComparison"),
   dailyRollup: document.querySelector("#dailyRollup"),
   modelDebugList: document.querySelector("#modelDebugList"),
   privacyStatus: document.querySelector("#privacyStatus")
@@ -127,6 +128,7 @@ function render(state) {
 
   renderRecent(scores);
   renderCategories(scores);
+  renderPlatformComparison(scores, settings);
   renderDailyRollup(state.dailyRollups || {});
   renderModelDebug(state.modelDebugTraces || []);
   renderPrivacyStatus(state, scores);
@@ -239,6 +241,83 @@ function renderPrivacyStatus(state, scores) {
     detail.textContent = value;
     elements.privacyStatus.append(term, detail);
   }
+}
+
+function renderPlatformComparison(scores, settings = {}) {
+  elements.platformComparison.innerHTML = "";
+  const rows = platformStats(scores, settings)
+    .sort((left, right) => right.averageToxicity - left.averageToxicity);
+
+  if (!rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "recent-empty";
+    empty.textContent = t("platformComparisonEmpty");
+    elements.platformComparison.append(empty);
+    return;
+  }
+
+  const table = document.createElement("table");
+  table.className = "platform-table";
+  const leader = rows[0];
+  const summary = document.createElement("div");
+  summary.className = "platform-summary";
+  summary.textContent = t("platformComparisonLeader", {
+    platform: platformLabel(leader.platform),
+    toxicity: formatPercent(leader.averageToxicity)
+  });
+  const head = document.createElement("thead");
+  head.innerHTML = `
+    <tr>
+      <th>${t("platformColumn")}</th>
+      <th>${t("platformAnalyzedColumn")}</th>
+      <th>${t("platformAvgToxicityColumn")}</th>
+      <th>${t("platformAvgAngerColumn")}</th>
+      <th>${t("platformHighToxicityColumn")}</th>
+    </tr>
+  `;
+  const body = document.createElement("tbody");
+  for (const row of rows) {
+    const item = document.createElement("tr");
+    item.innerHTML = `
+      <td>${platformLabel(row.platform)}</td>
+      <td>${row.count}</td>
+      <td>${formatPercent(row.averageToxicity)}</td>
+      <td>${formatPercent(row.averageAnger)}</td>
+      <td>${formatPercent(row.highToxicityRatio)}</td>
+    `;
+    body.append(item);
+  }
+  table.append(head, body);
+  elements.platformComparison.append(summary, table);
+}
+
+function platformStats(scores, settings = {}) {
+  const threshold = settings.toxicityThreshold ?? 0.72;
+  const grouped = new Map();
+  for (const score of scores) {
+    const platform = score.platform || "unknown";
+    const current = grouped.get(platform) || {
+      platform,
+      count: 0,
+      toxicityTotal: 0,
+      angerTotal: 0,
+      highToxicityCount: 0
+    };
+    const toxicity = Number(score.scores?.toxicity || 0);
+    const anger = Number(score.scores?.anger || 0);
+    current.count += 1;
+    current.toxicityTotal += toxicity;
+    current.angerTotal += anger;
+    current.highToxicityCount += toxicity >= threshold ? 1 : 0;
+    grouped.set(platform, current);
+  }
+  return Array.from(grouped.values()).map((row) => ({
+    platform: row.platform,
+    count: row.count,
+    averageToxicity: row.count ? row.toxicityTotal / row.count : 0,
+    averageAnger: row.count ? row.angerTotal / row.count : 0,
+    highToxicityRatio: row.count ? row.highToxicityCount / row.count : 0
+  }));
 }
 
 function renderDailyRollup(dailyRollups) {
@@ -686,6 +765,15 @@ function contentClassLabel(primary) {
     unknown: "contentClassUnknown"
   }[primary || "unknown"];
   return t(key || "contentClassUnknown");
+}
+
+function platformLabel(platform) {
+  const key = {
+    x: "platformX",
+    threads: "platformThreads",
+    facebook: "platformFacebook"
+  }[platform || ""];
+  return key ? t(key) : String(platform || "feed");
 }
 
 function t(key, values) {

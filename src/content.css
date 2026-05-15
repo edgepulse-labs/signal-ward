@@ -34,6 +34,11 @@ article[data-testid="tweet"] .pcfa-panel {
   padding: 7px 0 0;
 }
 
+.pcfa-facebook-panel {
+  margin: 8px 0 2px;
+  padding: 7px 0 0;
+}
+
 .pcfa-badge {
   display: inline-flex;
   align-items: center;

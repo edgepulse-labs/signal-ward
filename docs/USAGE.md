@@ -1,11 +1,11 @@
 # PCFA Usage Guide
 
-PCFA annotates visible X and Threads posts while you browse normally. It does not auto-scroll, auto-click, expand hidden content, or take platform actions.
+PCFA annotates visible X, Threads, and Facebook posts while you browse normally. It does not auto-scroll, auto-click, expand hidden content, or take platform actions.
 
 ## Start a Session
 
 1. Load the extension locally.
-2. Open X or Threads.
+2. Open X, Threads, or Facebook.
 3. Browse normally.
 4. Open the PCFA side panel from the extension toolbar.
 
@@ -35,6 +35,7 @@ The side panel shows:
 - average information density,
 - recent signals with source and confidence,
 - per-category score averages,
+- platform comparison for X, Threads, and Facebook toxicity / anger,
 - privacy and compliance status.
 
 ## Adjust Settings

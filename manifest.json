@@ -23,7 +23,10 @@
     "https://www.threads.com/*",
     "https://threads.com/*",
     "https://www.threads.net/*",
-    "https://threads.net/*"
+    "https://threads.net/*",
+    "https://www.facebook.com/*",
+    "https://facebook.com/*",
+    "https://m.facebook.com/*"
   ],
   "background": {
     "service_worker": "src/background.js",
@@ -40,7 +43,10 @@
         "https://www.threads.com/*",
         "https://threads.com/*",
         "https://www.threads.net/*",
-        "https://threads.net/*"
+        "https://threads.net/*",
+        "https://www.facebook.com/*",
+        "https://facebook.com/*",
+        "https://m.facebook.com/*"
       ],
       "js": ["src/i18n.js", "src/content.js"],
       "css": ["src/content.css"],
@@ -59,7 +65,10 @@
         "https://www.threads.com/*",
         "https://threads.com/*",
         "https://www.threads.net/*",
-        "https://threads.net/*"
+        "https://threads.net/*",
+        "https://www.facebook.com/*",
+        "https://facebook.com/*",
+        "https://m.facebook.com/*"
       ]
     }
   ],
