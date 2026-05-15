@@ -51,6 +51,7 @@ Available settings:
 - Use heuristic mode only: disables model calls and uses local keyword heuristics.
 - Store raw visible text locally: stores raw visible post text in local Chrome extension storage.
 - Store model debug traces locally: records recent raw model responses, parsed JSON, normalized scores, and fallback errors for debugging.
+- Report wrong analysis: stores a local-only feedback report for the analyzed item.
 - Help publish anonymous statistics to a server: opt-in cloud collaboration setting, off by default.
 - Enable collective defense suggestions: opt-in server-assisted early-folding setting, off by default.
 - Retention days: prunes locally stored scores and daily rollups after the selected number of days.

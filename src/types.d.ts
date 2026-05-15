@@ -60,6 +60,20 @@ export interface AnalysisResult {
   item: Partial<FeedItem> & Pick<FeedItem, "id" | "platform">;
 }
 
+export interface FeedbackReport {
+  id: string;
+  reportedAt: string;
+  kind: "wrong-analysis" | string;
+  itemId: string;
+  platform: FeedPlatform | string;
+  model: string;
+  source: AnalysisSource | string;
+  classification: ContentClassification | null;
+  scores: SignalScores | null;
+  summary: string;
+  item: Partial<FeedItem> | null;
+}
+
 export interface Settings {
   model: string;
   modelProvider: "webllm" | "ollama" | "openai-compatible";

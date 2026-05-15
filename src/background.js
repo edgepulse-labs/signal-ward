@@ -123,6 +123,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "PCFA_REPORT_FEEDBACK") {
+    recordFeedback(message.feedback)
+      .then((feedback) => sendResponse({ ok: true, feedback }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   return false;
 });
 
@@ -815,12 +822,11 @@ Do not copy these instructions. Do not output placeholder text.`;
 function normalizeModelOutput(output, settings = DEFAULT_SETTINGS, item = { text: "" }) {
   const heuristic = heuristicAnalysis(item, settings);
   const scores = { ...heuristic.scores, ...(output?.scores || {}) };
+  const fallbackClassification = inferClassificationFallback(output, heuristic, item);
+  const modelClassification = normalizeModelClassification(output?.classification, fallbackClassification, item);
   const classification = item?.platformSignals?.isConfirmedAd
     ? { primary: "ad", confidence: 0.98 }
-    : normalizeClassification(
-        output?.classification,
-        inferClassificationFallback(output, heuristic, item)
-      );
+    : normalizeClassification(modelClassification, fallbackClassification);
 
   return {
     scores: normalizeScores(scores),
@@ -829,6 +835,28 @@ function normalizeModelOutput(output, settings = DEFAULT_SETTINGS, item = { text
     explanations: normalizeExplanations(output?.explanations, settings),
     summary: typeof output?.summary === "string" ? output.summary.slice(0, 280) : ""
   };
+}
+
+async function recordFeedback(feedback = {}) {
+  const stored = await chrome.storage.local.get("feedbackReports");
+  const reports = Array.isArray(stored.feedbackReports) ? stored.feedbackReports : [];
+  const report = {
+    id: crypto.randomUUID(),
+    reportedAt: new Date().toISOString(),
+    kind: String(feedback.kind || "wrong-analysis").slice(0, 80),
+    itemId: String(feedback.itemId || "").slice(0, 120),
+    platform: String(feedback.platform || "").slice(0, 40),
+    model: String(feedback.model || "").slice(0, 160),
+    source: String(feedback.source || "").slice(0, 80),
+    classification: feedback.classification || null,
+    scores: feedback.scores || null,
+    summary: truncateDebugText(feedback.summary || "", 500),
+    item: feedback.item || null
+  };
+  await chrome.storage.local.set({
+    feedbackReports: [report, ...reports].slice(0, 200)
+  });
+  return report;
 }
 
 function heuristicAnalysis(item, settings = DEFAULT_SETTINGS) {
@@ -1327,15 +1355,44 @@ function normalizeClassification(classification, fallback = { primary: "unknown"
   };
 }
 
+function normalizeModelClassification(classification, fallback, item) {
+  const primary = String(classification?.primary || "");
+  if (primary !== "ad" || hasStrongAdEvidence(item)) {
+    return classification;
+  }
+  const fallbackPrimary = fallback?.primary && fallback.primary !== "ad" ? fallback.primary : "opinion";
+  return {
+    ...classification,
+    primary: fallbackPrimary,
+    confidence: Math.min(clampNumber(classification?.confidence, 0, 1, 0.45), 0.58)
+  };
+}
+
+function hasStrongAdEvidence(item) {
+  if (item?.platformSignals?.isConfirmedAd) {
+    return true;
+  }
+  const text = normalizeText(item?.text || "").toLowerCase();
+  const links = Array.isArray(item?.visibleLinks) ? item.visibleLinks.join(" ").toLowerCase() : "";
+  return (
+    /\b(ad|ads|advertisement|sponsored|promoted|promo|discount|sale|buy now|shop now|free trial|subscribe)\b/.test(text) ||
+    /廣告|广告|贊助|赞助|業配|促銷|折扣|優惠|訂閱|立即購買|限時|報名|下單/.test(text) ||
+    /utm_campaign|utm_source|affiliate|ref=|promo/.test(links)
+  );
+}
+
 function inferClassificationFallback(output, heuristic, item) {
   const text = normalizeText(item?.text || "").toLowerCase();
-  const explanationClass = inferClassificationFromExplanations(output?.explanations);
+  const explanationClass = inferClassificationFromExplanations(
+    output?.explanations,
+    hasStrongAdEvidence(item)
+  );
   const heuristicPrimary = heuristic.classification?.primary || "unknown";
 
   if (/\bvs\b|對決|比較|看法|認為|覺得|心得|觀點|opinion|take\b/.test(text)) {
     return { primary: "opinion", confidence: 0.5 };
   }
-  if (/\b(buy|sale|discount|promo|subscribe|trial|sponsored)\b|立即購買|優惠|訂閱|贊助/.test(text)) {
+  if (hasStrongAdEvidence(item)) {
     return { primary: "ad", confidence: 0.5 };
   }
   if (/https?:\/\/|source|study|report|data|來源|研究|報告|數據|根據/.test(text)) {
@@ -1353,7 +1410,7 @@ function inferClassificationFallback(output, heuristic, item) {
   return heuristic.classification || { primary: "unknown", confidence: 0.3 };
 }
 
-function inferClassificationFromExplanations(explanations) {
+function inferClassificationFromExplanations(explanations, allowAd = false) {
   if (!Array.isArray(explanations)) {
     return "";
   }
@@ -1362,6 +1419,9 @@ function inferClassificationFromExplanations(explanations) {
   for (const explanation of explanations) {
     const category = String(explanation?.category || "");
     if (!["ad", "propaganda", "chitchat", "informational", "opinion"].includes(category)) {
+      continue;
+    }
+    if (category === "ad" && !allowAd) {
       continue;
     }
     totals[category] = (totals[category] || 0) + (weights[explanation.contribution] || 1);

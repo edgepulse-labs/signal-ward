@@ -271,10 +271,11 @@
       panel = document.createElement("div");
       panel.className = "pcfa-panel";
     }
+    panel.classList.toggle("pcfa-threads-panel", STATE.platform === "threads");
     panel.dataset.pcfaItemId = itemId;
 
     const target = findAnnotationContainer(node);
-    const anchor = STATE.platform === "x" ? findXActionGroup(node) : null;
+    const anchor = findAnnotationAnchor(node);
     if (anchor?.parentElement) {
       if (panel.parentElement !== anchor.parentElement || panel.previousElementSibling !== anchor) {
         anchor.insertAdjacentElement("afterend", panel);
@@ -283,6 +284,16 @@
       target.append(panel);
     }
     return panel;
+  }
+
+  function findAnnotationAnchor(node) {
+    if (STATE.platform === "x") {
+      return findXActionGroup(node);
+    }
+    if (STATE.platform === "threads") {
+      return findThreadsActionRow(node);
+    }
+    return null;
   }
 
   function findAnnotationContainer(node) {
@@ -319,6 +330,48 @@
         )
       )
       .at(-1) || null;
+  }
+
+  function findThreadsActionRow(node) {
+    const actionButtons = Array.from(node.querySelectorAll('[role="button"], button, [aria-label]'))
+      .filter(isThreadsActionControl);
+    const rows = new Map();
+    for (const button of actionButtons) {
+      const row = nearestCompactActionRow(button, node);
+      if (!row) {
+        continue;
+      }
+      rows.set(row, (rows.get(row) || 0) + 1);
+    }
+    return Array.from(rows.entries())
+      .filter(([, count]) => count >= 2)
+      .map(([row]) => row)
+      .at(-1) || null;
+  }
+
+  function nearestCompactActionRow(element, boundary) {
+    let candidate = element;
+    while (candidate.parentElement && candidate.parentElement !== boundary) {
+      const parent = candidate.parentElement;
+      const actionCount = Array.from(parent.querySelectorAll('[role="button"], button, [aria-label]'))
+        .filter(isThreadsActionControl).length;
+      const textLength = normalizeText(parent.innerText || "").length;
+      if (actionCount >= 2 && textLength <= 80) {
+        return parent;
+      }
+      candidate = parent;
+    }
+    return null;
+  }
+
+  function isThreadsActionControl(element) {
+    const label = normalizeText(
+      [
+        element.getAttribute("aria-label"),
+        element.textContent
+      ].filter(Boolean).join(" ")
+    ).toLowerCase();
+    return /like|reply|repost|quote|share|send|喜歡|讚|回覆|回應|轉發|引用|分享|傳送|查看/.test(label);
   }
 
   function createBadge(label, value, tone) {
@@ -388,6 +441,7 @@
         scoreTone(1 - result.scores.informationDensity)
       ),
       createExpandLabel(result),
+      createFeedbackButton(result),
       createReanalyzeButton(result, node)
     );
     const list = document.createElement("ul");
@@ -420,6 +474,21 @@
     return details;
   }
 
+  function createFeedbackButton(result) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "pcfa-feedback";
+    button.title = t("feedbackTitle");
+    button.setAttribute("aria-label", t("feedbackTitle"));
+    button.textContent = t("feedbackButton");
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      reportFeedback(result, button);
+    });
+    return button;
+  }
+
   function createReanalyzeButton(result, node) {
     const button = document.createElement("button");
     button.type = "button";
@@ -433,6 +502,32 @@
       reanalyzeNode(node, result);
     });
     return button;
+  }
+
+  function reportFeedback(result, button) {
+    if (button.dataset.pcfaReported === "true") {
+      return;
+    }
+    const feedback = {
+      kind: "wrong-analysis",
+      itemId: result.itemId,
+      platform: result.platform,
+      model: result.model,
+      source: result.source,
+      classification: result.classification,
+      scores: result.scores,
+      summary: result.summary,
+      item: result.item || STATE.items.get(result.itemId) || null
+    };
+    safeRuntimeSendMessage({ type: "PCFA_REPORT_FEEDBACK", feedback }, (response) => {
+      if (!response?.ok) {
+        button.textContent = t("feedbackFailed");
+        return;
+      }
+      button.dataset.pcfaReported = "true";
+      button.textContent = t("feedbackReported");
+      button.disabled = true;
+    });
   }
 
   function reanalyzeNode(node, result) {

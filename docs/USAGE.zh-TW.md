@@ -51,6 +51,7 @@ Side panel 會顯示：
 - Use heuristic mode only：停用模型呼叫，只使用本機 keyword heuristic。
 - Store raw visible text locally：將原始可見貼文文字儲存在本機 Chrome extension storage。
 - Store model debug traces locally：記錄最近的模型原始回應、解析後 JSON、正規化分數與 fallback 錯誤，供除錯使用。
+- 回報判斷錯誤：針對已分析項目在本機儲存一筆 feedback report。
 - 協助發佈匿名統計資訊到伺服器：可選的雲端協作設定，預設關閉。
 - 啟用聯防摺疊建議：可選的伺服器輔助提早摺疊設定，預設關閉。
 - Retention days：在指定天數後清除本機保存的 scores 與 daily rollups。
